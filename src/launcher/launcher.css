@@ -1,0 +1,8 @@
+/* The launcher window is transparent and frameless: only the card is painted,
+   so the page itself must not be. */
+html,
+body,
+#root {
+  height: 100%;
+  background: transparent;
+}

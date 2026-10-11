@@ -2,6 +2,7 @@
 
 @theme {
   --font-sans: "Geist Variable", "Segoe UI Variable", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "Cascadia Mono", monospace;
 }
 
 html,

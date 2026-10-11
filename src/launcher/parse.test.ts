@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Command } from "./commands/types";
-import { exactCommand, matchingCommands, parseInput } from "./parse";
+import {
+  commandToRun,
+  exactCommand,
+  matchingCommands,
+  parseInput,
+} from "./parse";
 
 const makeCommand = (trigger: string): Command => ({
   trigger,
@@ -125,5 +130,50 @@ describe("exactCommand", () => {
 
   it("does not match a trigger that is only a prefix of the word typed", () => {
     expect(exactCommand(commands, parseInput("/todos"))).toBeUndefined();
+  });
+});
+
+describe("commandToRun", () => {
+  const todo = commands[0];
+  const prompt = commands[1];
+
+  it("runs the typed trigger once an argument is being typed", () => {
+    // The list is hidden in argument mode, so active is undefined here. This
+    // is the "/todo buy milk" case; it must still resolve to /todo.
+    expect(
+      commandToRun(commands, parseInput("/todo buy milk"), undefined)?.trigger,
+    ).toBe("/todo");
+  });
+
+  it("runs the typed trigger even when a stray row is still highlighted", () => {
+    expect(
+      commandToRun(commands, parseInput("/todo buy milk"), prompt)?.trigger,
+    ).toBe("/todo");
+  });
+
+  it("resolves a bare trigger with a trailing space", () => {
+    expect(
+      commandToRun(commands, parseInput("/todo "), undefined)?.trigger,
+    ).toBe("/todo");
+  });
+
+  it("returns nothing for an unknown trigger while typing arguments", () => {
+    expect(
+      commandToRun(commands, parseInput("/nope buy milk"), undefined),
+    ).toBeUndefined();
+  });
+
+  it("runs the highlighted row while the list is still showing", () => {
+    expect(commandToRun(commands, parseInput("/t"), prompt)?.trigger).toBe(
+      "/prompt",
+    );
+    expect(commandToRun(commands, parseInput("/"), todo)?.trigger).toBe(
+      "/todo",
+    );
+  });
+
+  it("returns nothing when nothing is highlighted and no trigger is exact", () => {
+    expect(commandToRun(commands, parseInput("/t"), undefined)).toBeUndefined();
+    expect(commandToRun(commands, parseInput(""), undefined)).toBeUndefined();
   });
 });

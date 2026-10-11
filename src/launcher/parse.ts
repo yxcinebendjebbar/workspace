@@ -38,3 +38,13 @@ export const exactCommand = (
   input: ParsedInput,
 ): Command | undefined =>
   commands.find((command) => command.trigger === input.trigger);
+
+/** The command Enter should run. Argument mode hides the list, so it falls
+ *  back to the trigger the user typed; that is what makes "/todo buy milk"
+ *  run instead of doing nothing. Otherwise Enter runs the highlighted row. */
+export const commandToRun = (
+  commands: readonly Command[],
+  input: ParsedInput,
+  active: Command | undefined,
+): Command | undefined =>
+  input.typingArgs ? exactCommand(commands, input) : active;

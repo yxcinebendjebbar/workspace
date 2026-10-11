@@ -2,7 +2,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { type Command, commands } from "./commands";
-import { exactCommand, matchingCommands, parseInput } from "./parse";
+import {
+  commandToRun,
+  exactCommand,
+  matchingCommands,
+  parseInput,
+} from "./parse";
 
 /** How long a success line stays up before the launcher hides itself. */
 const SUCCESS_HOLD_MS = 900;
@@ -104,7 +109,13 @@ export function Launcher() {
   };
 
   const submit = () => {
-    if (activeCommand) pick(activeCommand);
+    // Enter runs the highlighted row, or the typed trigger while the argument
+    // is being typed (the list is hidden then, so there is no row to run).
+    const command = commandToRun(commands, input, activeCommand);
+    if (command) {
+      if (input.typingArgs) void run(command, input.args);
+      else pick(command);
+    }
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {

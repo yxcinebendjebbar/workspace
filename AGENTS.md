@@ -149,28 +149,28 @@ Rust:
 Work one phase at a time, in order. Finish and verify a phase fully before starting the next. Use a branch per phase and conventional commits (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`).
 
 ### Phase 0: hygiene (do first)
-- [ ] Add Biome (or confirm ESLint and Prettier), `typecheck`, and `test` scripts. Add Vitest.
-- [ ] Add `.gitignore` entries, a strict CSP, and tidy the template leftovers.
-- [ ] Set window title and a sensible default size and minimum size.
+- [x] Add Biome (or confirm ESLint and Prettier), `typecheck`, and `test` scripts. Add Vitest.
+- [x] Add `.gitignore` entries, a strict CSP, and tidy the template leftovers.
+- [x] Set window title and a sensible default size and minimum size.
 
 ### Phase 1: core and data (done, then extend)
 Delivered: SQLite schema, projects, issues, todo lists, todos, sidebar, issue and todo views. Extend before moving on:
-- [ ] Edit issue title inline, and add an issue detail view with description editing.
-- [ ] Rename projects and todo lists.
-- [ ] Unit tests for `lib/constants.ts` helpers and for store actions (mock the queries module).
+- [x] Edit issue title inline, and add an issue detail view with description editing.
+- [x] Rename projects and todo lists.
+- [x] Unit tests for `lib/constants.ts` helpers and for store actions (mock the queries module).
 
 ### Phase 2: launcher
-- [ ] Add `tauri-plugin-global-shortcut`. Default shortcut `Ctrl+Space`, falling back to `Alt+Shift+Space` if registration fails. Make it configurable later (phase 5).
-- [ ] Declare a hidden, frameless, always-on-top, centered `launcher` window (about 640 by 400, not resizable, hidden from the taskbar). Add it to the capability's `windows`.
-- [ ] Add `launcher.html` and `src/launcher/main.tsx` as a second Vite entry. It reuses `src/db` and `index.css`.
-- [ ] In Rust, toggle the window on shortcut: if visible, hide; otherwise center, show, focus, and emit `launcher-opened` so the input clears and focuses.
-- [ ] Hide on Escape, on blur (without firing during the initial show), and after a successful command.
-- [ ] Closing the main window hides it instead of quitting. Add a tray icon with "Open" and "Quit".
-- [ ] Command registry: each command is a module exporting `{ trigger, title, description, argHint, run(args) }` returning `{ ok: true, message } | { ok: false, message }`. `parse.ts` splits input into trigger and args; unit test it thoroughly.
-- [ ] Launcher UI per `DESIGN.md`: input, filtered command list on `/`, arrow keys and Enter, result line.
-- [ ] `/todo <text>` calls `addTodo("inbox", text)`, shows "Added to Inbox", then hides. Empty text shows the usage hint and writes nothing.
-- [ ] `/prompt` registered as disabled with "Coming in phase 3".
-- [ ] After launcher writes, emit `data-changed`; the main window listens and reloads todos and lists.
+- [x] Add `tauri-plugin-global-shortcut`. Default shortcut `Ctrl+Space`, falling back to `Alt+Shift+Space` if registration fails. Make it configurable later (phase 5).
+- [x] Declare a hidden, frameless, always-on-top, centered `launcher` window (about 640 by 400, not resizable, hidden from the taskbar). Add it to the capability's `windows`.
+- [x] Add `launcher.html` and `src/launcher/main.tsx` as a second Vite entry. It reuses `src/db` and `index.css`.
+- [x] In Rust, toggle the window on shortcut: if visible, hide; otherwise center, show, focus, and emit `launcher-opened` so the input clears and focuses.
+- [x] Hide on Escape, on blur (without firing during the initial show), and after a successful command.
+- [x] Closing the main window hides it instead of quitting. Add a tray icon with "Open" and "Quit".
+- [x] Command registry: each command is a module exporting `{ trigger, title, description, argHint, run(args) }` returning `{ ok: true, message } | { ok: false, message }`. `parse.ts` splits input into trigger and args; unit test it thoroughly.
+- [x] Launcher UI per `DESIGN.md`: input, filtered command list on `/`, arrow keys and Enter, result line.
+- [x] `/todo <text>` calls `addTodo("inbox", text)`, shows "Added to Inbox", then hides. Empty text shows the usage hint and writes nothing.
+- [x] `/prompt` registered as disabled with "Coming in phase 3".
+- [x] After launcher writes, emit `data-changed`; the main window listens and reloads todos and lists.
 - Acceptance: shortcut works while another app is focused; launcher opens centered with an empty focused input; Escape and click-away hide it; `/todo buy milk` appears in the Inbox without refresh; closing the main window leaves tray and shortcut working; Quit from the tray exits fully.
 
 ### Phase 3: opencode bridge

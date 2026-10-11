@@ -24,6 +24,7 @@ interface Store {
   refresh: () => Promise<void>;
 
   addProject: (name: string) => Promise<void>;
+  renameProject: (id: string, name: string) => Promise<void>;
   removeProject: (id: string) => Promise<void>;
 
   addIssue: (title: string) => Promise<void>;
@@ -31,6 +32,7 @@ interface Store {
   removeIssue: (id: string) => Promise<void>;
 
   addList: (name: string) => Promise<void>;
+  renameList: (id: string, name: string) => Promise<void>;
   removeList: (id: string) => Promise<void>;
 
   addTodo: (title: string) => Promise<void>;
@@ -80,17 +82,29 @@ export const useStore = create<Store>((set, get) => {
       const v = get().view;
       set({ lists: await q.listTodoLists() });
       if (v?.type === "todos") set({ todos: await q.listTodos(v.listId) });
-      else if (v?.type === "issues") set({ issues: await q.listIssues(v.projectId) });
+      else if (v?.type === "issues")
+        set({ issues: await q.listIssues(v.projectId) });
     },
 
     addProject: async (name) => {
       const taken = new Set(get().projects.map((p) => p.key));
-      const base = name.replace(/[^a-z]/gi, "").slice(0, 3).toUpperCase() || "PRJ";
+      const base =
+        name
+          .replace(/[^a-z]/gi, "")
+          .slice(0, 3)
+          .toUpperCase() || "PRJ";
       let key = base;
       for (let n = 2; taken.has(key); n++) key = `${base}${n}`;
       const project = await q.createProject(name, key);
       set({ projects: await q.listProjects() });
       await get().open({ type: "issues", projectId: project.id });
+    },
+
+    renameProject: async (id, name) => {
+      await q.renameProject(id, name);
+      set({
+        projects: get().projects.map((p) => (p.id === id ? { ...p, name } : p)),
+      });
     },
 
     removeProject: async (id) => {
@@ -128,6 +142,12 @@ export const useStore = create<Store>((set, get) => {
       const list = await q.createTodoList(name);
       set({ lists: await q.listTodoLists() });
       await get().open({ type: "todos", listId: list.id });
+    },
+
+    renameList: async (id, name) => {
+      if (id === q.INBOX_ID) return;
+      await q.renameTodoList(id, name);
+      set({ lists: await q.listTodoLists() });
     },
 
     removeList: async (id) => {

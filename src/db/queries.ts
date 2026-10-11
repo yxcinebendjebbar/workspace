@@ -18,6 +18,9 @@ export async function createProject(name: string, key: string) {
   return row;
 }
 
+export const renameProject = (id: string, name: string) =>
+  db.update(projects).set({ name }).where(eq(projects.id, id));
+
 export const deleteProject = (id: string) =>
   db.delete(projects).where(eq(projects.id, id));
 
@@ -48,8 +51,17 @@ export async function createIssue(projectId: string, title: string) {
 
 export const updateIssue = (
   id: string,
-  patch: Partial<Pick<typeof issues.$inferInsert, "title" | "description" | "status" | "priority">>,
-) => db.update(issues).set({ ...patch, updatedAt: now() }).where(eq(issues.id, id));
+  patch: Partial<
+    Pick<
+      typeof issues.$inferInsert,
+      "title" | "description" | "status" | "priority"
+    >
+  >,
+) =>
+  db
+    .update(issues)
+    .set({ ...patch, updatedAt: now() })
+    .where(eq(issues.id, id));
 
 export const deleteIssue = (id: string) =>
   db.delete(issues).where(eq(issues.id, id));
@@ -64,6 +76,9 @@ export async function createTodoList(name: string) {
   await db.insert(todoLists).values(row);
   return row;
 }
+
+export const renameTodoList = (id: string, name: string) =>
+  db.update(todoLists).set({ name }).where(eq(todoLists.id, id));
 
 export const deleteTodoList = (id: string) =>
   db.delete(todoLists).where(eq(todoLists.id, id));

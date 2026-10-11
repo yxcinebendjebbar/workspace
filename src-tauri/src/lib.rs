@@ -3,9 +3,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use tauri::{
+    Emitter, Manager,
     menu::{Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager,
 };
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
@@ -92,7 +92,9 @@ fn register_shortcut(app: &tauri::AppHandle) {
             Err(err) => eprintln!("could not register {key}: {err}"),
         }
     }
-    eprintln!("no launcher shortcut available, {PRIMARY_SHORTCUT} and {FALLBACK_SHORTCUT} are taken");
+    eprintln!(
+        "no launcher shortcut available, {PRIMARY_SHORTCUT} and {FALLBACK_SHORTCUT} are taken"
+    );
 }
 
 /// Closing the windows would take the process (and the shortcut) with it, so the
@@ -103,7 +105,7 @@ fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let menu = Menu::with_items(app, &[&open, &quit])?;
 
     let mut builder = TrayIconBuilder::with_id("main")
-        .tooltip("workspace")
+        .tooltip("Keel")
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "open" => show_main(app),
@@ -169,10 +171,10 @@ pub fn run() {
             tauri::WindowEvent::Focused(true) if window.label() == LAUNCHER_LABEL => {
                 PENDING_FOCUS.store(false, Ordering::SeqCst);
             }
-            tauri::WindowEvent::Focused(false) if window.label() == LAUNCHER_LABEL => {
-                if !launcher_blur_is_stale() {
-                    let _ = window.hide();
-                }
+            tauri::WindowEvent::Focused(false)
+                if window.label() == LAUNCHER_LABEL && !launcher_blur_is_stale() =>
+            {
+                let _ = window.hide();
             }
             _ => {}
         })

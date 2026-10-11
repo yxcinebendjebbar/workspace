@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { type FormEvent, useState } from "react";
 import { DeleteButton } from "../components/DeleteButton";
 import { useStore } from "../store";
 
@@ -12,7 +12,9 @@ export function TodosView() {
   const [title, setTitle] = useState("");
 
   const list =
-    view?.type === "todos" ? lists.find((l) => l.id === view.listId) : undefined;
+    view?.type === "todos"
+      ? lists.find((l) => l.id === view.listId)
+      : undefined;
   if (!list) return null;
 
   const submit = async (e: FormEvent) => {
@@ -39,7 +41,9 @@ export function TodosView() {
       </header>
 
       {todos.length === 0 && (
-        <p className="text-sm text-stone-500">Nothing to do here. Add a todo above.</p>
+        <p className="text-sm text-stone-500">
+          Nothing to do here. Add a todo above.
+        </p>
       )}
 
       <ul className="flex flex-col">

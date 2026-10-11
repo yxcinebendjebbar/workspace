@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { useStore } from "./store";
 import { IssuesView } from "./views/IssuesView";

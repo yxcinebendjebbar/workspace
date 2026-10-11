@@ -13,11 +13,25 @@ export function StatusIcon({ status }: { status: string }) {
         />
       )}
       {status === "todo" && (
-        <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <circle
+          cx="8"
+          cy="8"
+          r="6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
       )}
       {status === "in_progress" && (
         <>
-          <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <circle
+            cx="8"
+            cy="8"
+            r="6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
           <path d="M8 4a4 4 0 0 1 0 8z" fill="currentColor" />
         </>
       )}
@@ -36,7 +50,14 @@ export function StatusIcon({ status }: { status: string }) {
       )}
       {status === "canceled" && (
         <>
-          <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <circle
+            cx="8"
+            cy="8"
+            r="6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
           <path
             d="M5.5 5.5l5 5M10.5 5.5l-5 5"
             stroke="currentColor"

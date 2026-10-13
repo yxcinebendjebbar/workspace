@@ -107,7 +107,7 @@ Landing page:
 
 ## Components
 
-**Status icon.** 16px, five states, cycled by click: backlog (dashed ring), todo (ring), in progress (ring with half fill, amber), done (filled with check, accent), canceled (ring with x). Order: Backlog, Todo, In progress, Done, Canceled. Always include an accessible label with the current status and "Click to change".
+**Status icon.** 16px, five states, cycled by click: backlog (dashed ring), todo (ring), in progress (ring with half fill, amber), done (filled with check, accent), canceled (ring with x). Order: Backlog, Todo, In progress, Done, Canceled. Always include an accessible label with the current status and "Click to change". The tone colours the icon only: status text beside it uses `body`, because `text-muted/70` and amber would not both clear 4.5:1 as text. The shape carries the difference, not the colour.
 
 **Priority.** Text label, cycled by click: No priority, Urgent, High, Medium, Low. "No priority" stays hidden until the row is hovered or focused.
 
@@ -131,7 +131,7 @@ Landing page:
 
 **Dialog.** A panel over the page, not a new window. Backdrop is `ink` at 30% and is a real button labelled "Close"; the panel is `surface`, 14px radius, hairline border, 24px padding, 16px/600 title, and one soft shadow (it floats). Escape closes it and a click on the backdrop closes it; Tab stays inside. The first focusable control takes focus on open.
 
-**Issue modal.** One issue, opened by clicking its row. View mode first: status chip, priority label, title at 18px/600, description in `body` (or "No description yet."). **Edit** swaps the body for a form of title, description, status and priority, and writes only on **Save**; Escape leaves the edit, not the issue. Titles are edited here, not in the row.
+**Issue modal.** One issue, opened by clicking its row. View mode first: status icon with its label, priority label, title at 18px/600, description in `body` (or "No description yet."). **Edit** swaps the body for a form of title, description, status and priority, and writes only on **Save**; Escape leaves the edit, not the issue. Titles are edited here, not in the row.
 
 **Settings.** A page of groups. Each group is a 14px-radius hairline card on `surface`, divided by hairlines, with a 16px/600 title and one muted line saying what the group does. A row is a label with an optional muted description on the left and its control on the right. Groups for a phase that is not built yet are shown, with their controls disabled and one line saying which phase they arrive in.
 

@@ -190,8 +190,12 @@ export function IssueModal({
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2 text-sm text-muted">
-            <span className={`flex items-center gap-1.5 ${meta.tone}`}>
-              <StatusIcon status={issue.status} />
+            <span className="flex items-center gap-1.5 text-body">
+              {/* The tone is an icon colour; the label stays neutral text so
+                  it keeps 4.5:1 in both themes. The shape tells them apart. */}
+              <span className={meta.tone}>
+                <StatusIcon status={issue.status} />
+              </span>
               {meta.label}
             </span>
             <span>{priorityLabel(issue.priority)}</span>

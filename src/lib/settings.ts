@@ -31,6 +31,12 @@ export const DEFAULT_SETTINGS: Settings = {
   accent: "indigo",
 };
 
+/** What each enum setting accepts. A stray value must not reach the DOM. */
+const ALLOWED = {
+  theme: ["system", "light", "dark"],
+  accent: ["indigo", "teal", "orange"],
+} as const;
+
 /** Applies a stored value to one field, ignoring anything of the wrong shape. */
 const read = <K extends keyof Settings>(
   raw: string | undefined,
@@ -40,6 +46,13 @@ const read = <K extends keyof Settings>(
   if (raw === undefined) return fallback;
   try {
     const parsed: unknown = JSON.parse(raw);
+    if (key === "theme" || key === "accent") {
+      const allowed: readonly string[] =
+        key === "theme" ? ALLOWED.theme : ALLOWED.accent;
+      return allowed.includes(String(parsed))
+        ? (parsed as Settings[K])
+        : fallback;
+    }
     if (Array.isArray(fallback)) {
       return (
         Array.isArray(parsed)

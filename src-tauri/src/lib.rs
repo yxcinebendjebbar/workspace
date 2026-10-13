@@ -90,7 +90,9 @@ fn launcher_blur_is_stale() -> bool {
 /// Register the launcher shortcut, falling back to a second key when another
 /// app already owns the first one. Returns the key that ended up registered.
 fn register_shortcut(app: &tauri::AppHandle, preferred: &str) -> String {
-    let candidates = if preferred == PRIMARY_SHORTCUT {
+    // An empty key arrives when nothing could be registered last time; don't
+    // try it again and put a confusing failure in the logs people can read.
+    let candidates = if preferred.is_empty() || preferred == PRIMARY_SHORTCUT {
         vec![PRIMARY_SHORTCUT, FALLBACK_SHORTCUT]
     } else {
         vec![preferred, PRIMARY_SHORTCUT, FALLBACK_SHORTCUT]

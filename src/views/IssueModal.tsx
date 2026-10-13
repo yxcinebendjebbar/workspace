@@ -46,6 +46,19 @@ export function IssueModal({
   const meta = statusMeta(issue.status);
 
   // The form holds a draft so Escape can drop the whole edit at once.
+  const fillDraft = () => {
+    setTitle(issue.title);
+    setDescription(issue.description);
+    setStatus(issue.status);
+    setPriority(issue.priority);
+  };
+
+  const startEditing = () => {
+    // Refresh from the issue: it may have changed since this form was last open.
+    fillDraft();
+    setEditing(true);
+  };
+
   const save = (e: FormEvent) => {
     e.preventDefault();
     const next = title.trim();
@@ -60,10 +73,7 @@ export function IssueModal({
   };
 
   const cancel = () => {
-    setTitle(issue.title);
-    setDescription(issue.description);
-    setStatus(issue.status);
-    setPriority(issue.priority);
+    fillDraft();
     setEditing(false);
   };
 
@@ -106,7 +116,7 @@ export function IssueModal({
             />
             <button
               type="button"
-              onClick={() => setEditing(true)}
+              onClick={startEditing}
               className={primaryButtonClass}
             >
               Edit
@@ -128,6 +138,8 @@ export function IssueModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               aria-label="Issue title"
+              // Without this, Save on an empty title would do nothing at all.
+              required
               className={fieldClass}
             />
           </label>

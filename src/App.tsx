@@ -13,6 +13,7 @@ export default function App() {
   const ready = useStore((s) => s.ready);
   const view = useStore((s) => s.view);
   const init = useStore((s) => s.init);
+  const initError = useStore((s) => s.initError);
   const refresh = useStore((s) => s.refresh);
   const theme = useStore((s) => s.settings.theme);
   const accent = useStore((s) => s.settings.accent);
@@ -41,6 +42,14 @@ export default function App() {
       <div className="flex min-h-0 flex-1">
         <Sidebar />
         <main className="min-w-0 flex-1 overflow-y-auto bg-surface">
+          {initError && (
+            <p
+              role="alert"
+              className="mx-auto max-w-3xl border-b border-hairline px-8 py-4 text-sm text-danger"
+            >
+              {initError}
+            </p>
+          )}
           {ready && view?.type === "daily" && <DailyView />}
           {ready && view?.type === "issues" && <IssuesView />}
           {ready && view?.type === "todos" && <TodosView />}

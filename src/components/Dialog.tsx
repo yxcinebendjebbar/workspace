@@ -4,8 +4,8 @@ const FOCUSABLE =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 /**
- * A modal surface: white panel over a dimmed page. Escape and a click on the
- * backdrop close it, and Tab stays inside while it is open.
+ * A modal surface: a `surface` panel over a dimmed page. Escape and a click on
+ * the backdrop close it, and Tab stays inside while it is open.
  */
 export function Dialog({
   title,
@@ -20,8 +20,13 @@ export function Dialog({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Focus runs once on open. Re-running it on every parent render would pull
+  // focus back to the first field while the user is typing in a later one.
   useEffect(() => {
     panelRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (e: globalThis.KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -50,10 +55,12 @@ export function Dialog({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* The backdrop is a real button so it is reachable and dismissable. */}
+      {/* Pointer-only close target: Escape covers the keyboard, and Tab must
+          not be able to reach past the panel into the backdrop. */}
       <button
         type="button"
         aria-label="Close"
+        tabIndex={-1}
         onClick={onClose}
         className="fixed inset-0 bg-ink/30"
       />

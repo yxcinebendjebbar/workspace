@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { applyAppearance } from "../lib/appearance";
+import { errorMessage } from "../lib/errors";
 import { DEFAULT_SETTINGS, getSettings, type Settings } from "../lib/settings";
 import { type Command, commands } from "./commands";
 import {
@@ -106,10 +107,7 @@ export function Launcher() {
         );
       }
     } catch (error) {
-      setStatus({
-        kind: "error",
-        text: error instanceof Error ? error.message : String(error),
-      });
+      setStatus({ kind: "error", text: errorMessage(error) });
     } finally {
       busy.current = false;
     }
@@ -184,6 +182,15 @@ export function Launcher() {
   const showEmpty =
     value.startsWith("/") && !input.typingArgs && !matches.length;
 
+  // A command switched off in Settings must say so rather than just vanish.
+  const blocked =
+    input.trigger !== "" &&
+    commands.some(
+      (c) =>
+        c.trigger === input.trigger &&
+        settings.disabledCommands.includes(c.trigger),
+    );
+
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-hairline bg-surface shadow-[0_20px_48px_-16px_rgba(28,28,26,0.28)]">
       <div className="border-b border-hairline px-4 py-3.5">
@@ -224,7 +231,13 @@ export function Launcher() {
         </ul>
       )}
 
-      {showEmpty && (
+      {blocked && (
+        <p className="px-4 py-3 text-sm text-muted">
+          {input.trigger} is turned off in Settings.
+        </p>
+      )}
+
+      {showEmpty && !blocked && (
         <p className="px-4 py-3 text-sm text-muted">
           No command matches {input.trigger}
         </p>

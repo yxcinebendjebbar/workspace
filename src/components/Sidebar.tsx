@@ -64,7 +64,7 @@ function Section({
             onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
             placeholder={placeholder}
             aria-label={placeholder}
-            className="w-full rounded-md border border-stone-300 bg-surface px-2 py-1.5 text-sm placeholder:text-muted"
+            className="w-full rounded-md border border-hairline bg-surface px-2 py-1.5 text-sm placeholder:text-muted"
           />
         </form>
       )}

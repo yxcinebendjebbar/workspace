@@ -181,7 +181,7 @@ Before writing any code, read the current opencode documentation (server mode an
 - [ ] Enable `/prompt <text>`: send to the active or a new session in a configured project directory; show "Sent to opencode".
 - [ ] Add a Sessions view in the main window listing running and finished sessions (use the pill styles in `DESIGN.md`).
 - [ ] Emit an internal `opencode:finished` event when a session completes, for phase 4 to forward.
-- [ ] Settings needed: project directory, optional server URL. Keep them in a small `settings` table via a new migration.
+- [ ] Settings needed: project directory, optional server URL. The `settings` table already exists (migration `0002`), so add keys to it rather than starting a new migration for settings alone.
 - Acceptance: `/prompt` starts work in opencode; the Sessions view shows progress and completion; quitting the app stops the child process.
 
 ### Phase 4: phone link
@@ -194,8 +194,8 @@ Before writing any code, read the current opencode documentation (server mode an
 - Acceptance: pair by scanning the QR code; finishing an opencode task shows a notification on the phone; a file sent from the phone lands on the PC and the reverse works; revoking a device from the app disconnects it.
 
 ### Phase 5: polish and release
-- [ ] Settings screen: shortcut, project directory, download folder, paired devices, launch at login (`tauri-plugin-autostart`).
-- [ ] Dark theme, designed as its own pass and recorded in `DESIGN.md` first.
+The Settings screen, the dark theme, the title bar, and the theme and shortcut settings already exist from the UI shell pass; what is left here:
+- [ ] Settings entries that need phase 3 or 4 behind them: project directory, received-files folder, paired devices.
 - [ ] More launcher commands only when asked by the human.
 - [ ] App icon, final name, installer, code signing, and `tauri-plugin-updater` with a signed update feed.
 - [ ] Replace the mock composition on the landing page with real screenshots.
@@ -204,6 +204,7 @@ Before writing any code, read the current opencode documentation (server mode an
 
 - Final app name and logo.
 - Launcher shortcut default (currently `Ctrl+Space`).
+- The sidebar's Sessions and Sign in rows are placeholders until phases 3 and 4; the "1 running" badge shows the real count and so stays hidden until then.
 - Push strategy for the phone if Web Push on Workers is not viable.
 - Relay domain and Cloudflare account setup (the human provides credentials and secrets).
 - Whether sync across multiple PCs is wanted (not planned; local-first only for now).

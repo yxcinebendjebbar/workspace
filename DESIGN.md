@@ -46,7 +46,7 @@ Accent is a Settings choice, applied as `data-accent` on `<html>`:
 Theme is `data-theme` on `<html>`: `light`, `dark`, or `system`, where `system` follows the OS while the app runs. Both windows paint it; the main window paints the saved value, and every window paints the system value first so a dark machine never flashes white.
 
 Rules:
-- Accent is used sparingly: done status, commands in the launcher, the text caret, focus ring, the accent-tinted selected chip, and text links. The primary button is ink, not accent.
+- Accent is used sparingly: done status, commands in the launcher, the text caret, focus ring, and text links. The primary button is ink, not accent.
 - Text contrast is at least 4.5:1 (3:1 at 24px and up). Do not use lighter greys than `muted` for text.
 - Never rely on color alone. Status is told apart by shape as well as color.
 - No gradients, no tinted washes, no colored shadows.

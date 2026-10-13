@@ -4,6 +4,7 @@ import { create } from "zustand";
 import * as q from "./db/queries";
 import type { Issue, Project, Todo, TodoList } from "./db/schema";
 import { applyAppearance } from "./lib/appearance";
+import { errorMessage } from "./lib/errors";
 import {
   DEFAULT_SETTINGS,
   getSettings,
@@ -31,6 +32,8 @@ interface Store {
   todos: Todo[];
   dailyTodos: Todo[];
   dailyIssues: q.ProjectIssue[];
+  /** Set when startup could not finish. The shell still renders so it is readable. */
+  initError: string | null;
 
   init: () => Promise<void>;
   open: (view: View) => Promise<void>;
@@ -118,28 +121,45 @@ export const useStore = create<Store>((set, get) => {
     todos: [],
     dailyTodos: [],
     dailyIssues: [],
+    initError: null,
 
     init: async () => {
-      const settings = await getSettings();
+      // Everything below can fail. Show the window first, because a hidden
+      // window cannot tell anyone why it is not there.
+      let problem: string | null = null;
+      let settings = DEFAULT_SETTINGS;
+      try {
+        settings = await getSettings();
+      } catch (error) {
+        problem = `Keel could not read its settings (${errorMessage(error)}), so it is using the defaults.`;
+      }
       set({ settings });
       applyAppearance(settings.theme, settings.accent);
-      // The window starts hidden so "start minimized" never flashes a frame.
       if (!settings.startMinimized) {
         const win = getCurrentWindow();
         await win.show();
         await win.setFocus();
       }
-      // Rust registered the default shortcut before these webviews existed,
-      // so the saved ones are pushed across now that we can read them.
-      await applySetting("launcherShortcut", settings.launcherShortcut);
-      await applySetting("closeToTray", settings.closeToTray);
 
-      const [projects, lists] = await Promise.all([
-        q.listProjects(),
-        q.listTodoLists(),
-      ]);
-      set({ projects, lists, ready: true });
-      await get().open({ type: "daily" });
+      try {
+        // Rust registered the default shortcut before these webviews existed,
+        // so the saved ones are pushed across now that we can read them.
+        await applySetting("launcherShortcut", settings.launcherShortcut);
+        await applySetting("closeToTray", settings.closeToTray);
+        const [projects, lists] = await Promise.all([
+          q.listProjects(),
+          q.listTodoLists(),
+        ]);
+        set({ projects, lists, ready: true });
+        await get().open({ type: "daily" });
+      } catch (error) {
+        problem = problem
+          ? `${problem} It also could not load your workspace (${errorMessage(error)}).`
+          : `Keel could not load your workspace (${errorMessage(error)}). Restart it; if it keeps failing, open Settings and look at the logs.`;
+        // The shell still renders, so the message has somewhere to appear.
+        set({ ready: true });
+      }
+      if (problem) set({ initError: problem });
     },
 
     open: async (view) => {

@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
-/* One accent, chosen in Settings. The tint is the same hue at low alpha, used
-   for focus backgrounds and selected rows. */
+/* One accent, chosen in Settings. */
 @theme {
   --font-sans:
     "Geist Variable", "Segoe UI Variable", system-ui, sans-serif;
@@ -9,7 +8,6 @@
     "Geist Mono Variable", ui-monospace, "Cascadia Mono", monospace;
 
   --color-accent: #4f46e5;
-  --color-accent-tint: rgb(79 70 229 / 0.07);
   --color-surface: #ffffff;
   --color-ground: #fafaf9;
   --color-ink: #1c1c1a;
@@ -25,12 +23,10 @@
 /* Teal and orange are the accent alternatives listed in DESIGN.md. */
 [data-accent="teal"] {
   --color-accent: #0f766e;
-  --color-accent-tint: rgb(15 118 110 / 0.07);
 }
 
 [data-accent="orange"] {
   --color-accent: #c2410c;
-  --color-accent-tint: rgb(194 65 12 / 0.07);
 }
 
 /* The dark palette is a designed pass, recorded in DESIGN.md: the same warm
@@ -46,19 +42,16 @@
   --color-hover: #262523;
   --color-active: #302f2c;
   --color-accent: #818cf8;
-  --color-accent-tint: rgb(129 140 248 / 0.12);
   --color-warn: #fbbf24;
   --color-danger: #f87171;
 }
 
 [data-theme="dark"][data-accent="teal"] {
   --color-accent: #2dd4bf;
-  --color-accent-tint: rgb(45 212 191 / 0.12);
 }
 
 [data-theme="dark"][data-accent="orange"] {
   --color-accent: #fb923c;
-  --color-accent-tint: rgb(251 146 60 / 0.12);
 }
 
 html,

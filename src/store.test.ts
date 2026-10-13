@@ -34,6 +34,7 @@ const tauri = vi.hoisted(() => ({
   invoke: vi.fn<(cmd: string, args?: object) => Promise<unknown>>(),
   show: vi.fn<() => Promise<void>>(),
   saveSetting: vi.fn<(key: string, value: unknown) => Promise<void>>(),
+  getSettings: vi.fn<() => Promise<object>>(),
   settings: {
     theme: "system" as const,
     accent: "indigo" as const,
@@ -57,7 +58,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 vi.mock("./lib/settings", () => ({
   DEFAULT_SETTINGS: tauri.settings,
-  getSettings: async () => ({ ...tauri.settings }),
+  getSettings: tauri.getSettings,
   saveSetting: tauri.saveSetting,
 }));
 vi.mock("./lib/appearance", () => ({
@@ -115,6 +116,7 @@ beforeEach(() => {
   // otherwise leave it hanging for the tests after it.
   vi.resetAllMocks();
   tauri.invoke.mockResolvedValue("Ctrl+Space");
+  tauri.getSettings.mockImplementation(async () => ({ ...tauri.settings }));
   Object.assign(tauri.settings, {
     theme: "system",
     accent: "indigo",
@@ -134,6 +136,7 @@ beforeEach(() => {
     todos: [],
     dailyTodos: [],
     dailyIssues: [],
+    initError: null,
     settings: { ...tauri.settings },
   });
   mocks.listProjects.mockResolvedValue([]);
@@ -174,6 +177,27 @@ describe("init", () => {
     expect(mocks.listOpenTodos).toHaveBeenCalledWith("inbox");
     expect(useStore.getState().dailyTodos).toHaveLength(1);
     expect(useStore.getState().dailyIssues).toHaveLength(1);
+  });
+
+  it("shows the window and says so when settings cannot be read", async () => {
+    tauri.getSettings.mockRejectedValueOnce(new Error("disk unreadable"));
+
+    await useStore.getState().init();
+
+    // A hidden window could never report this, so it shows regardless.
+    expect(tauri.show).toHaveBeenCalled();
+    expect(useStore.getState().initError).toContain("disk unreadable");
+    expect(useStore.getState().ready).toBe(true);
+  });
+
+  it("renders anyway when the workspace cannot be loaded", async () => {
+    mocks.listProjects.mockRejectedValueOnce(new Error("table missing"));
+
+    await useStore.getState().init();
+
+    expect(useStore.getState().ready).toBe(true);
+    expect(useStore.getState().initError).toContain("table missing");
+    expect(useStore.getState().view).toBeNull();
   });
 });
 

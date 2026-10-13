@@ -10,9 +10,10 @@ import { type FormEvent, useEffect, useState } from "react";
 import { version } from "../../package.json";
 import { Segmented } from "../components/Segmented";
 import { Toggle } from "../components/Toggle";
-import { exportData, importData, resetAllData } from "../db/queries";
+import { exportData, INBOX_ID, importData, resetAllData } from "../db/queries";
 import { commands } from "../launcher/commands";
 import { parseBackup } from "../lib/backup";
+import { errorMessage } from "../lib/errors";
 import type { Theme } from "../lib/settings";
 import {
   inputClass,
@@ -27,9 +28,6 @@ const THEMES: { id: Theme; label: string }[] = [
   { id: "light", label: "Light" },
   { id: "dark", label: "Dark" },
 ];
-
-const errorMessage = (e: unknown) =>
-  e instanceof Error ? e.message : String(e);
 
 export function SettingsView() {
   return (
@@ -157,7 +155,10 @@ function LaunchAtLoginRow() {
   useEffect(() => {
     void isEnabled()
       .then(setOn)
-      .catch(() => setOn(false));
+      // Saying "off" silently would be a guess; say what went wrong instead.
+      .catch((e: unknown) =>
+        setError(`Could not read startup status: ${errorMessage(e)}.`),
+      );
   }, []);
 
   const change = async (next: boolean) => {
@@ -192,6 +193,11 @@ function LauncherGroup() {
   const lists = useStore((s) => s.lists);
   const setSetting = useStore((s) => s.setSetting);
 
+  // A deleted list must not leave the select blank: show what /todo does now.
+  const effectiveList = lists.some((l) => l.id === defaultTodoList)
+    ? defaultTodoList
+    : INBOX_ID;
+
   return (
     <Group
       title="Launcher"
@@ -208,7 +214,7 @@ function LauncherGroup() {
         description="Where /todo sends what you type."
       >
         <select
-          value={defaultTodoList}
+          value={effectiveList}
           onChange={(e) => void setSetting("defaultTodoList", e.target.value)}
           aria-label="Default list for /todo"
           className={inputClass}
@@ -223,7 +229,7 @@ function LauncherGroup() {
       {commands.map((c) => (
         <ToggleRow
           key={c.trigger}
-          label={`${c.trigger} ${c.title.toLowerCase()}`}
+          label={c.trigger}
           description={c.description}
           checked={!disabledCommands.includes(c.trigger)}
           onChange={(next) =>
@@ -251,13 +257,20 @@ function ShortcutRow({ shortcut }: { shortcut: string }) {
     e.preventDefault();
     const next = draft.trim();
     if (!next) return;
-    setEditing(false);
     setNote(null);
-    await setSetting("launcherShortcut", next);
-    // Rust may have had to fall back; the store holds what actually registered.
-    const registered = useStore.getState().settings.launcherShortcut;
-    if (registered !== next) {
-      setNote(`Another app owns ${next}, so Keel uses ${registered} instead.`);
+    try {
+      await setSetting("launcherShortcut", next);
+      setEditing(false);
+      // Rust may have had to fall back; the store holds what registered.
+      const registered = useStore.getState().settings.launcherShortcut;
+      if (registered !== next) {
+        setNote(
+          `Another app owns ${next}, so Keel uses ${registered} instead.`,
+        );
+      }
+    } catch (error) {
+      // Stay in the editor so the value typed is still there to correct.
+      setNote(`Could not change the shortcut: ${errorMessage(error)}.`);
     }
   };
 
@@ -342,11 +355,20 @@ function DataGroup() {
   useEffect(() => {
     void appDataDir()
       .then(async (dir) => setDbPath(await join(dir, "workspace.db")))
-      .catch(() => setDbPath("unknown"));
+      .catch((e: unknown) =>
+        setDbPath(`Could not read it: ${errorMessage(e)}`),
+      );
   }, []);
 
-  const exportTo = async () => {
+  // Every action starts from a clean line, so a message never outlives the
+  // thing it describes.
+  const clearStatus = () => {
+    setNotice(null);
     setError(null);
+  };
+
+  const exportTo = async () => {
+    clearStatus();
     try {
       const path = await saveDialog({
         title: "Export Keel data",
@@ -362,8 +384,7 @@ function DataGroup() {
   };
 
   const importFrom = async () => {
-    setError(null);
-    setNotice(null);
+    clearStatus();
     try {
       const picked = await openDialog({
         title: "Import Keel data",
@@ -386,7 +407,7 @@ function DataGroup() {
 
   const reset = async () => {
     setArmed(false);
-    setError(null);
+    clearStatus();
     try {
       await resetAllData();
       await refresh();
@@ -398,7 +419,7 @@ function DataGroup() {
   };
 
   const openLogs = async () => {
-    setError(null);
+    clearStatus();
     try {
       await revealItemInDir(await appLogDir());
     } catch (e) {
@@ -406,64 +427,75 @@ function DataGroup() {
     }
   };
 
+  const status = error ?? notice;
+
   return (
-    <Group title="Data and About">
-      <Row
-        label="Database"
-        description={dbPath ? `${dbPath}` : "Reading the location"}
-      >
-        <button
-          type="button"
-          onClick={openLogs}
-          className={smallSecondaryButtonClass}
+    <>
+      <Group title="Data and About">
+        <Row label="Database" description={dbPath || "Reading the location"}>
+          <button
+            type="button"
+            onClick={openLogs}
+            className={smallSecondaryButtonClass}
+          >
+            Open logs folder
+          </button>
+        </Row>
+        <Row
+          label="Export and import"
+          description="Export writes a file with your projects, issues and todos. Import adds what the file holds."
         >
-          Open logs folder
-        </button>
-      </Row>
-      <Row
-        label="Export and import"
-        description="Export writes a file with your projects, issues and todos. Import adds what the file holds."
-      >
-        <button
-          type="button"
-          onClick={() => void exportTo()}
-          className={smallSecondaryButtonClass}
+          <button
+            type="button"
+            onClick={() => void exportTo()}
+            className={smallSecondaryButtonClass}
+          >
+            Export
+          </button>
+          <button
+            type="button"
+            onClick={() => void importFrom()}
+            className={smallSecondaryButtonClass}
+          >
+            Import
+          </button>
+        </Row>
+        <Row
+          label="Reset all data"
+          description="Empties every project, issue and todo."
         >
-          Export
-        </button>
-        <button
-          type="button"
-          onClick={() => void importFrom()}
-          className={smallSecondaryButtonClass}
+          <button
+            type="button"
+            onClick={() => {
+              if (armed) void reset();
+              else setArmed(true);
+            }}
+            onBlur={() => setArmed(false)}
+            className={
+              armed ? smallDangerButtonClass : smallSecondaryButtonClass
+            }
+          >
+            {armed ? "Reset everything?" : "Reset all data"}
+          </button>
+        </Row>
+        <Row
+          label="Version"
+          description="Updates arrive with the release build in phase 5."
         >
-          Import
-        </button>
-      </Row>
-      <Row
-        label="Reset all data"
-        description={
-          error ?? notice ?? "Empties every project, issue and todo."
-        }
-      >
-        <button
-          type="button"
-          onClick={() => {
-            if (armed) void reset();
-            else setArmed(true);
-          }}
-          onBlur={() => setArmed(false)}
-          className={armed ? smallDangerButtonClass : smallSecondaryButtonClass}
+          <span className="font-mono text-xs text-muted">{version}</span>
+        </Row>
+      </Group>
+      {/* Export, import, reset and the logs button all report here, rather than
+          each claiming a row that belongs to a different action. */}
+      {status && (
+        <p
+          role={error ? "alert" : "status"}
+          className={`text-sm ${error ? "text-danger" : "text-muted"}`}
         >
-          {armed ? "Reset everything?" : "Reset all data"}
-        </button>
-      </Row>
-      <Row
-        label="Version"
-        description="Updates arrive with the release build in phase 5."
-      >
-        <span className="font-mono text-xs text-muted">{version}</span>
-      </Row>
-    </Group>
+          {status}
+        </p>
+      )}
+    </>
   );
 }
 

@@ -160,7 +160,7 @@ Delivered: SQLite schema, projects, issues, todo lists, todos, sidebar, issue an
 - [x] Unit tests for `lib/constants.ts` helpers and for store actions (mock the queries module).
 
 ### Phase 2: launcher
-- [x] Add `tauri-plugin-global-shortcut`. Default shortcut `Ctrl+Space`, falling back to `Alt+Shift+Space` if registration fails. Make it configurable later (phase 5).
+- [x] Add `tauri-plugin-global-shortcut`. Default shortcut `Ctrl+Space`, falling back to `Alt+Shift+Space` if registration fails. Configurable from Settings (done in the UI shell pass).
 - [x] Declare a hidden, frameless, always-on-top, centered `launcher` window (about 640 by 400, not resizable, hidden from the taskbar). Add it to the capability's `windows`.
 - [x] Add `launcher.html` and `src/launcher/main.tsx` as a second Vite entry. It reuses `src/db` and `index.css`.
 - [x] In Rust, toggle the window on shortcut: if visible, hide; otherwise center, show, focus, and emit `launcher-opened` so the input clears and focuses.
@@ -168,7 +168,7 @@ Delivered: SQLite schema, projects, issues, todo lists, todos, sidebar, issue an
 - [x] Closing the main window hides it instead of quitting. Add a tray icon with "Open" and "Quit".
 - [x] Command registry: each command is a module exporting `{ trigger, title, description, argHint, run(args) }` returning `{ ok: true, message } | { ok: false, message }`. `parse.ts` splits input into trigger and args; unit test it thoroughly.
 - [x] Launcher UI per `DESIGN.md`: input, filtered command list on `/`, arrow keys and Enter, result line.
-- [x] `/todo <text>` calls `addTodo("inbox", text)`, shows "Added to Inbox", then hides. Empty text shows the usage hint and writes nothing.
+- [x] `/todo <text>` calls `addTodo(defaultTodoList, text)`, falling back to Inbox when that list is gone, shows "Added to <list name>", then hides. Empty text shows the usage hint and writes nothing.
 - [x] `/prompt` registered as disabled with "Coming in phase 3".
 - [x] After launcher writes, emit `data-changed`; the main window listens and reloads todos and lists.
 - Acceptance: shortcut works while another app is focused; launcher opens centered with an empty focused input; Escape and click-away hide it; `/todo buy milk` appears in the Inbox without refresh; closing the main window leaves tray and shortcut working; Quit from the tray exits fully.
@@ -204,7 +204,7 @@ The Settings screen, the dark theme, the title bar, and the theme and shortcut s
 
 - Final app name and logo.
 - Launcher shortcut default (currently `Ctrl+Space`).
-- The sidebar's Sessions and Sign in rows are placeholders until phases 3 and 4; the "1 running" badge shows the real count and so stays hidden until then.
+- The sidebar's Sessions and Sign in rows are placeholders until phases 3 and 4; each names the phase it arrives in and shows no content or counts yet.
 - Push strategy for the phone if Web Push on Workers is not viable.
 - Relay domain and Cloudflare account setup (the human provides credentials and secrets).
 - Whether sync across multiple PCs is wanted (not planned; local-first only for now).

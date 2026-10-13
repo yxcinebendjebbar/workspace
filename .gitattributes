@@ -1,0 +1,3 @@
+# Biome formats the bytes on disk, so every checkout must agree on endings.
+# Without this, autocrlf turns every file into a format failure.
+* text=auto eol=lf

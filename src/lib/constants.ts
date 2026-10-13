@@ -1,9 +1,9 @@
 export const STATUSES = [
-  { id: "backlog", label: "Backlog", tone: "text-stone-400" },
-  { id: "todo", label: "Todo", tone: "text-stone-500" },
-  { id: "in_progress", label: "In progress", tone: "text-amber-500" },
-  { id: "done", label: "Done", tone: "text-indigo-600" },
-  { id: "canceled", label: "Canceled", tone: "text-stone-400" },
+  { id: "backlog", label: "Backlog", tone: "text-muted/70" },
+  { id: "todo", label: "Todo", tone: "text-muted" },
+  { id: "in_progress", label: "In progress", tone: "text-warn" },
+  { id: "done", label: "Done", tone: "text-accent" },
+  { id: "canceled", label: "Canceled", tone: "text-muted" },
 ] as const;
 
 export const PRIORITIES = [

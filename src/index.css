@@ -1,8 +1,64 @@
 @import "tailwindcss";
 
+/* One accent, chosen in Settings. The tint is the same hue at low alpha, used
+   for focus backgrounds and selected rows. */
 @theme {
-  --font-sans: "Geist Variable", "Segoe UI Variable", system-ui, sans-serif;
-  --font-mono: "Geist Mono Variable", ui-monospace, "Cascadia Mono", monospace;
+  --font-sans:
+    "Geist Variable", "Segoe UI Variable", system-ui, sans-serif;
+  --font-mono:
+    "Geist Mono Variable", ui-monospace, "Cascadia Mono", monospace;
+
+  --color-accent: #4f46e5;
+  --color-accent-tint: rgb(79 70 229 / 0.07);
+  --color-surface: #ffffff;
+  --color-ground: #fafaf9;
+  --color-ink: #1c1c1a;
+  --color-body: #4a4a45;
+  --color-muted: #5f5f59;
+  --color-hairline: #e6e5e1;
+  --color-hover: #f1f0ec;
+  --color-active: #e9e8e4;
+  --color-warn: #d97706;
+  --color-danger: #b91c1c;
+}
+
+/* Teal and orange are the accent alternatives listed in DESIGN.md. */
+[data-accent="teal"] {
+  --color-accent: #0f766e;
+  --color-accent-tint: rgb(15 118 110 / 0.07);
+}
+
+[data-accent="orange"] {
+  --color-accent: #c2410c;
+  --color-accent-tint: rgb(194 65 12 / 0.07);
+}
+
+/* The dark palette is a designed pass, recorded in DESIGN.md: the same warm
+   neutrals shifted down, with ink and surface swapped and the accent lifted
+   one step so it keeps 4.5:1 on the dark ground. */
+[data-theme="dark"] {
+  --color-surface: #1c1c1a;
+  --color-ground: #141413;
+  --color-ink: #f2f2ef;
+  --color-body: #c9c8c2;
+  --color-muted: #98968e;
+  --color-hairline: #33322e;
+  --color-hover: #262523;
+  --color-active: #302f2c;
+  --color-accent: #818cf8;
+  --color-accent-tint: rgb(129 140 248 / 0.12);
+  --color-warn: #fbbf24;
+  --color-danger: #f87171;
+}
+
+[data-theme="dark"][data-accent="teal"] {
+  --color-accent: #2dd4bf;
+  --color-accent-tint: rgb(45 212 191 / 0.12);
+}
+
+[data-theme="dark"][data-accent="orange"] {
+  --color-accent: #fb923c;
+  --color-accent-tint: rgb(251 146 60 / 0.12);
 }
 
 html,
@@ -13,8 +69,8 @@ body,
 
 body {
   margin: 0;
-  background: #fff;
-  color: #1c1c1a;
+  background: var(--color-ground);
+  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
@@ -24,8 +80,14 @@ input {
 }
 
 :focus-visible {
-  outline: 2px solid #4f46e5;
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* Window chrome: the title bar is a drag region, so nothing in it should be
+   selected or show a focus ring unless it is a real control. */
+[data-tauri-drag-region] {
+  user-select: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

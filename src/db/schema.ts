@@ -46,6 +46,12 @@ export const todos = sqliteTable("todos", {
   createdAt: integer("created_at").notNull(),
 });
 
+// App settings as a flat key/value store. Values are JSON-encoded.
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 export type Project = typeof projects.$inferSelect;
 export type Issue = typeof issues.$inferSelect;
 export type TodoList = typeof todoLists.$inferSelect;

@@ -46,7 +46,7 @@ export function InlineEdit({
       onBlur={commit}
       onKeyDown={onKeyDown}
       aria-label={label}
-      className={`w-full min-w-0 rounded border border-stone-300 px-1.5 py-0.5 text-sm ${className}`}
+      className={`w-full min-w-0 rounded border border-hairline bg-surface px-1.5 py-0.5 text-sm ${className}`}
     />
   );
 }

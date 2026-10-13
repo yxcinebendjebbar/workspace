@@ -40,7 +40,8 @@ export function StatusIcon({ status }: { status: string }) {
           <circle cx="8" cy="8" r="7" fill="currentColor" />
           <path
             d="M5 8.2l2 2 4-4.2"
-            stroke="#fff"
+            className="text-surface"
+            stroke="currentColor"
             strokeWidth="1.5"
             fill="none"
             strokeLinecap="round"

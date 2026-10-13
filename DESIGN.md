@@ -17,30 +17,40 @@ References:
 
 ## Color
 
-Warm-neutral greys plus a single accent. Tokens below are canonical; Tailwind stone classes in the app map to the nearest value.
+Warm-neutral greys plus a single accent. The app paints from the semantic tokens below (CSS variables in `src/index.css`), never from raw Tailwind palette classes, so both themes stay honest. `stone-*` appears only in the landing page mocks.
 
-| Token | Hex | Use |
+| Token | Light | Dark | Use |
+| --- | --- | --- | --- |
+| ground | `#FAFAF9` | `#141413` | Page background, sidebar, title bar |
+| surface | `#FFFFFF` | `#1C1C1A` | App main area, cards, inputs, panels |
+| ink | `#1C1C1A` | `#F2F2EF` | Primary text, primary button, toggle on-state |
+| body | `#4A4A45` | `#C9C8C2` | Paragraph text, row text |
+| muted | `#5F5F59` | `#98968E` | Meta text, keys, counts, secondary labels |
+| hairline | `#E6E5E1` | `#33322E` | Borders and dividers |
+| hover | `#F1F0EC` | `#262523` | Row hover, highlighted launcher result |
+| active | `#E9E8E4` | `#302F2C` | Selected nav row, selected segment |
+| accent | `#4F46E5` | `#818CF8` | The only brand color |
+| warn | `#D97706` | `#FBBF24` | In progress status |
+| danger | `#B91C1C` | `#F87171` | Armed delete, reset, close button hover |
+
+The dark palette is the same warm neutrals shifted down, with ink and surface swapped. Nothing else moves: the accent is lifted one step in each hue so it keeps 4.5:1 against the dark ground.
+
+Accent is a Settings choice, applied as `data-accent` on `<html>`:
+
+| Accent | Light | Dark |
 | --- | --- | --- |
-| ground | `#FAFAF8` | Landing page background |
-| surface | `#FFFFFF` | App main area, cards, inputs, floating windows |
-| sidebar | `#F7F7F5` | Sidebar background (`stone-50` in the app) |
-| hover | `#F1F0EC` | Row hover, highlighted launcher result, pill backgrounds |
-| active | `#E9E8E4` | Selected nav row |
-| hairline | `#E6E5E1` | Borders and dividers (`stone-200` in the app) |
-| ink | `#1C1C1A` | Primary text, primary button, dark notification card |
-| body | `#4A4A45` | Paragraph text |
-| muted | `#5F5F59` | Meta text, keys, counts, secondary labels |
-| accent | `#4F46E5` | The only brand color (`indigo-600`) |
-| warning | `#D97706` icon, `#B45309` text | In progress status |
+| Indigo (default) | `#4F46E5` | `#818CF8` |
+| Teal | `#0F766E` | `#2DD4BF` |
+| Orange | `#C2410C` | `#FB923C` |
 
-Accent alternatives available as a tweak on the landing page: teal `#0F766E`, orange `#C2410C`.
+Theme is `data-theme` on `<html>`: `light`, `dark`, or `system`, where `system` follows the OS while the app runs. Both windows paint it; the main window paints the saved value, and every window paints the system value first so a dark machine never flashes white.
 
 Rules:
-- Accent is used sparingly: done status, commands in the launcher, the text caret, focus ring, logo mark, and text links. The primary button is ink, not accent.
+- Accent is used sparingly: done status, commands in the launcher, the text caret, focus ring, the accent-tinted selected chip, and text links. The primary button is ink, not accent.
 - Text contrast is at least 4.5:1 (3:1 at 24px and up). Do not use lighter greys than `muted` for text.
 - Never rely on color alone. Status is told apart by shape as well as color.
 - No gradients, no tinted washes, no colored shadows.
-- Dark mode is not designed yet. Do not improvise it; design it as its own pass.
+- Do not invent colors in a component. Add a token here first, then use it.
 
 ## Typography
 
@@ -65,10 +75,12 @@ Rules:
 ## Layout and spacing
 
 App:
-- Sidebar 240px wide, hairline right border, `sidebar` background.
-- Main content is centered, max width 768px (`max-w-3xl`), padding 32px horizontal and 40px vertical.
-- Rows: 8px horizontal and 8px vertical padding, 12px gap between parts, hover background `#FAFAF8`-level (`stone-50`).
+- The window has no system title bar. A 36px drag bar sits on top, painted in `ground` with a hairline bottom border, the app name at the left and the three window controls at the right (44px wide each, `muted` glyphs). Minimize and maximize/restore hover to `hover`; close hovers to `danger` with a `surface` glyph. Closing hides the window to the tray unless Settings turned that off.
+- Sidebar 240px wide, hairline right border, `ground` background.
+- Main content is `surface`, centered, max width 768px (`max-w-3xl`), padding 32px horizontal and 40px vertical.
+- Rows: 8px horizontal and 8px vertical padding, 12px gap between parts, hover background `hover`.
 - Gap between page sections: 32px.
+- The launcher is a separate frameless window and is not draggable: it is centered on every open and hides on blur, so it never needs moving.
 
 Landing page:
 - Container max width 1120px, side gutter 32px.
@@ -81,13 +93,13 @@ Landing page:
 | Element | Radius |
 | --- | --- |
 | Floating launcher | 16 |
-| App window, cards | 14 |
+| App window, cards, dialogs | 14 |
 | Notification card | 18 |
-| Buttons | 10 |
-| Inputs | 8 to 10 |
+| Buttons (footer scale) | 10 |
+| Buttons (row scale), inputs, segmented | 8 |
 | Nav rows | 6 to 8 |
 | Key chips, small tags | 5 to 6 |
-| Pills | 999 |
+| Pills, toggles | 999 |
 
 - Use a border, not a shadow, to define cards and inputs.
 - Shadows are reserved for surfaces that float above others: the app window mock, the launcher, notifications. One soft shadow, never stacked.
@@ -103,13 +115,27 @@ Landing page:
 
 **Todo row.** Native checkbox (accent colored), title (struck through and muted when done), delete. Done items sort to the bottom.
 
-**Sidebar row.** Name, optional muted hint (project key), delete on hover. Selected row uses `active` at 70% opacity and `aria-current="page"`.
+**Sidebar row.** Name, optional muted hint (project key), delete on hover. Selected row uses `active` at 70% opacity and `aria-current="page"`. A row that belongs to an unbuilt phase (Sessions, Sign in) is `muted`, not clickable, and carries a one-line note such as "Comes in phase 3" instead of a hover tooltip.
+
+**Section label.** 14px, weight 500, `muted`. Used for sidebar sections, issue status groups, and the two Daily lists. A count follows the label in normal weight.
 
 **Add input.** Full-width input at the top of a view, placeholder says what it does and how to submit ("Add an issue and press Enter"). Sidebar adds use a `+` button that reveals an inline input; Escape cancels.
 
-**Delete button.** Hidden until row hover or focus. First click arms it ("Delete?" on a red-tinted background), second click deletes, losing focus disarms. No confirm dialogs.
+**Delete button.** Hidden until row hover or focus. First click arms it ("Delete?" on a `danger`-tinted background), second click deletes, losing focus disarms. No confirm dialogs. In a dialog footer it is visible from the start.
 
-**Primary button.** Ink background, white text, 10px radius, 15px vertical and 26px horizontal padding, weight 500. **Secondary:** hairline-weight ink border, or a plain accent text link.
+**Primary button.** Ink background, `surface` text, 10px radius, 15px vertical and 26px horizontal padding, weight 500. **Secondary:** hairline-weight ink border, same metrics. **Row-scale:** the same two at 8px radius with 6px and 12px padding, for settings rows and inline editors.
+
+**Toggle.** 44 by 24 track, pill radius, `ink` when on and `active` when off, with a `surface` knob that slides 20px. Ink, not accent. A toggle that belongs to an unbuilt phase is `disabled` at 40% opacity.
+
+**Segmented.** Real radio inputs in a hairline-bordered pill, 8px radius, 2px inset. The chosen segment uses `active` with weight 500; the others are `muted`. Used for theme, accent, and server mode.
+
+**Dialog.** A panel over the page, not a new window. Backdrop is `ink` at 30% and is a real button labelled "Close"; the panel is `surface`, 14px radius, hairline border, 24px padding, 16px/600 title, and one soft shadow (it floats). Escape closes it and a click on the backdrop closes it; Tab stays inside. The first focusable control takes focus on open.
+
+**Issue modal.** One issue, opened by clicking its row. View mode first: status chip, priority label, title at 18px/600, description in `body` (or "No description yet."). **Edit** swaps the body for a form of title, description, status and priority, and writes only on **Save**; Escape leaves the edit, not the issue. Titles are edited here, not in the row.
+
+**Settings.** A page of groups. Each group is a 14px-radius hairline card on `surface`, divided by hairlines, with a 16px/600 title and one muted line saying what the group does. A row is a label with an optional muted description on the left and its control on the right. Groups for a phase that is not built yet are shown, with their controls disabled and one line saying which phase they arrive in.
+
+**Daily view.** The home screen and the first screen a new user sees. Quick add at the top, then "Inbox" and "In progress" groups with counts, then one muted line about the launcher shortcut. With no project yet it becomes "Start with a project": one input plus three plain tips (the shortcut, `/todo`, click an issue's status icon).
 
 **Launcher.**
 - Frameless, centered, about 640px wide, 16px radius, floating shadow.
@@ -151,7 +177,5 @@ Landing page:
 ## Open items
 
 - Real app name and logo mark (currently "Keel" and a plain accent square).
-- Dark theme.
-- App window chrome (title bar, window controls) and tray icon.
-- Settings screen, issue detail view, and title editing.
+- Tray icon artwork (the tray uses the default icon for now).
 - Real screenshots to replace the mock composition on the landing page once phase 2 and 3 exist.

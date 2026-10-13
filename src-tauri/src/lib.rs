@@ -2,16 +2,21 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
+use log::LevelFilter;
 use tauri::{
     Emitter, Manager,
     menu::{Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
 };
+use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+use tauri_plugin_log::Builder as LogBuilder;
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
 
 const MAIN_LABEL: &str = "main";
 const LAUNCHER_LABEL: &str = "launcher";
+/// The database the SQL plugin opens; the frontend uses the same string.
+const DB_URL: &str = "sqlite:workspace.db";
 
 /// First key to try. `Alt+Space` is out: the Windows system menu owns it.
 const PRIMARY_SHORTCUT: &str = "Ctrl+Space";
@@ -26,6 +31,8 @@ const FOCUS_GRACE: Duration = Duration::from_millis(250);
 static LAST_SHOWN: Mutex<Option<Instant>> = Mutex::new(None);
 /// Set while we are waiting for the launcher to report it has focus.
 static PENDING_FOCUS: AtomicBool = AtomicBool::new(false);
+/// Whether closing a window should hide it instead of ending the app.
+static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
 
 fn webview_window(app: &tauri::AppHandle, label: &str) -> Option<tauri::WebviewWindow> {
     app.get_webview_window(label)
@@ -48,7 +55,7 @@ fn hide_launcher(app: tauri::AppHandle) {
 
 fn toggle_launcher(app: &tauri::AppHandle) {
     let Some(win) = webview_window(app, LAUNCHER_LABEL) else {
-        eprintln!("launcher window is missing");
+        log::error!("launcher window is missing");
         return;
     };
 
@@ -81,20 +88,39 @@ fn launcher_blur_is_stale() -> bool {
 }
 
 /// Register the launcher shortcut, falling back to a second key when another
-/// app already owns the first one.
-fn register_shortcut(app: &tauri::AppHandle) {
-    for key in [PRIMARY_SHORTCUT, FALLBACK_SHORTCUT] {
+/// app already owns the first one. Returns the key that ended up registered.
+fn register_shortcut(app: &tauri::AppHandle, preferred: &str) -> String {
+    let candidates = if preferred == PRIMARY_SHORTCUT {
+        vec![PRIMARY_SHORTCUT, FALLBACK_SHORTCUT]
+    } else {
+        vec![preferred, PRIMARY_SHORTCUT, FALLBACK_SHORTCUT]
+    };
+    for key in candidates {
         match app.global_shortcut().register(key) {
             Ok(()) => {
-                println!("launcher shortcut: {key}");
-                return;
+                log::info!("launcher shortcut: {key}");
+                return key.to_string();
             }
-            Err(err) => eprintln!("could not register {key}: {err}"),
+            Err(err) => log::error!("could not register {key}: {err}"),
         }
     }
-    eprintln!(
-        "no launcher shortcut available, {PRIMARY_SHORTCUT} and {FALLBACK_SHORTCUT} are taken"
-    );
+    log::error!("no launcher shortcut available, {preferred} and {FALLBACK_SHORTCUT} are taken");
+    String::new()
+}
+
+/// Re-point the launcher shortcut from Settings. Clears the old key first so a
+/// failed registration does not leave two keys firing the launcher.
+#[tauri::command]
+fn set_launcher_shortcut(app: tauri::AppHandle, key: String) -> String {
+    let _ = app.global_shortcut().unregister_all();
+    register_shortcut(&app, &key)
+}
+
+/// Hiding to the tray is the default; Settings can turn it off so a close
+/// ends the app.
+#[tauri::command]
+fn set_close_to_tray(close_to_tray: bool) {
+    CLOSE_TO_TRAY.store(close_to_tray, Ordering::SeqCst);
 }
 
 /// Closing the windows would take the process (and the shortcut) with it, so the
@@ -133,17 +159,31 @@ fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let migrations = vec![Migration {
-        version: 1,
-        description: "init",
-        sql: include_str!("../migrations/0001_init.sql"),
-        kind: MigrationKind::Up,
-    }];
+    let migrations = vec![
+        Migration {
+            version: 1,
+            description: "init",
+            sql: include_str!("../migrations/0001_init.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "settings",
+            sql: include_str!("../migrations/0002_settings.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 3,
+            description: "issues_status_index",
+            sql: include_str!("../migrations/0003_issues_status_index.sql"),
+            kind: MigrationKind::Up,
+        },
+    ];
 
     tauri::Builder::default()
         .plugin(
             SqlBuilder::default()
-                .add_migrations("sqlite:workspace.db", migrations)
+                .add_migrations(DB_URL, migrations)
                 .build(),
         )
         .plugin(
@@ -155,16 +195,38 @@ pub fn run() {
                 })
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![hide_launcher])
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
+        // Writes to stdout and to the app log dir, which Settings can reveal.
+        .plugin(LogBuilder::new().level(LevelFilter::Info).build())
+        .invoke_handler(tauri::generate_handler![
+            hide_launcher,
+            set_launcher_shortcut,
+            set_close_to_tray
+        ])
         .setup(|app| {
-            register_shortcut(app.handle());
+            // The saved keys live in SQLite, which Rust cannot read before the
+            // webviews start, so Rust registers the default and the frontend
+            // re-points it (and the tray behaviour) right after loading settings.
+            register_shortcut(app.handle(), PRIMARY_SHORTCUT);
             setup_tray(app.handle())?;
             Ok(())
         })
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { api, .. } => {
-                // Hide instead of closing, for both windows: a closed last window
-                // ends the process and takes the shortcut with it.
+                if window.label() == MAIN_LABEL && !CLOSE_TO_TRAY.load(Ordering::SeqCst) {
+                    // Settings turned the tray off: a close ends the app, but
+                    // the launcher window must die with it too.
+                    window.app_handle().exit(0);
+                    return;
+                }
+                // Hide instead of closing: a closed last window ends the process
+                // and takes the shortcut with it.
                 api.prevent_close();
                 let _ = window.hide();
             }

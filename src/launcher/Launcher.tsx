@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
+import { applyAppearance } from "../lib/appearance";
+import { DEFAULT_SETTINGS, getSettings, type Settings } from "../lib/settings";
 import { type Command, commands } from "./commands";
 import {
   commandToRun,
@@ -16,7 +18,7 @@ type Status = { kind: "ok" | "error"; text: string };
 
 function EnterChip() {
   return (
-    <span className="shrink-0 rounded-[5px] border border-stone-200 px-1.5 py-0.5 text-xs text-stone-500">
+    <span className="shrink-0 rounded-[5px] border border-hairline px-1.5 py-0.5 text-xs text-muted">
       Enter
     </span>
   );
@@ -38,13 +40,13 @@ function CommandRow({
       aria-current={active ? "true" : undefined}
       aria-disabled={command.disabled || undefined}
       className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left ${
-        active ? "bg-stone-100" : "hover:bg-stone-50"
+        active ? "bg-active" : "hover:bg-hover"
       } ${command.disabled ? "opacity-60" : ""}`}
     >
-      <code className="shrink-0 font-mono text-sm font-medium text-indigo-600">
+      <code className="shrink-0 font-mono text-sm font-medium text-accent">
         {command.trigger}
       </code>
-      <span className="min-w-0 flex-1 truncate text-sm text-stone-700">
+      <span className="min-w-0 flex-1 truncate text-sm text-body">
         {command.description}
       </span>
       {active && <EnterChip />}
@@ -56,16 +58,23 @@ export function Launcher() {
   const [value, setValue] = useState("");
   const [selected, setSelected] = useState(0);
   const [status, setStatus] = useState<Status | null>(null);
+  // Settings can change in the main window while this one is alive, so they
+  // are read again on every open.
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const hideTimer = useRef<number | undefined>(undefined);
   const busy = useRef(false);
 
+  const available = commands.filter(
+    (c) => !settings.disabledCommands.includes(c.trigger),
+  );
+
   const input = parseInput(value);
-  const matches = matchingCommands(commands, input);
+  const matches = matchingCommands(available, input);
   const activeIndex = matches.length ? selected % matches.length : 0;
   const activeCommand = matches[activeIndex];
-  const exact = exactCommand(commands, input);
+  const exact = exactCommand(available, input);
 
   const placeholder =
     input.typingArgs && exact
@@ -89,7 +98,13 @@ export function Launcher() {
         return;
       }
       setStatus({ kind: "ok", text: result.message });
-      hideTimer.current = window.setTimeout(() => void hide(), SUCCESS_HOLD_MS);
+      // Turning this off keeps the window up to read the result.
+      if (settings.closeAfterCommand) {
+        hideTimer.current = window.setTimeout(
+          () => void hide(),
+          SUCCESS_HOLD_MS,
+        );
+      }
     } catch (error) {
       setStatus({
         kind: "error",
@@ -111,7 +126,7 @@ export function Launcher() {
   const submit = () => {
     // Enter runs the highlighted row, or the typed trigger while the argument
     // is being typed (the list is hidden then, so there is no row to run).
-    const command = commandToRun(commands, input, activeCommand);
+    const command = commandToRun(available, input, activeCommand);
     if (command) {
       if (input.typingArgs) void run(command, input.args);
       else pick(command);
@@ -141,10 +156,21 @@ export function Launcher() {
 
   // Every open starts clean and focused, whatever was typed before.
   useEffect(() => {
+    const loadSettings = () => {
+      void getSettings()
+        .then((next) => {
+          setSettings(next);
+          applyAppearance(next.theme, next.accent);
+        })
+        .catch(() => setSettings(DEFAULT_SETTINGS));
+    };
+
+    loadSettings();
     inputRef.current?.focus();
     const unlisten = listen("launcher-opened", () => {
       window.clearTimeout(hideTimer.current);
       hideTimer.current = undefined;
+      loadSettings();
       setStatus(null);
       setValue("");
       setSelected(0);
@@ -159,8 +185,8 @@ export function Launcher() {
     value.startsWith("/") && !input.typingArgs && !matches.length;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_20px_48px_-16px_rgba(28,28,26,0.28)]">
-      <div className="border-b border-stone-200 px-4 py-3.5">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-hairline bg-surface shadow-[0_20px_48px_-16px_rgba(28,28,26,0.28)]">
+      <div className="border-b border-hairline px-4 py-3.5">
         <input
           ref={inputRef}
           value={value}
@@ -168,6 +194,8 @@ export function Launcher() {
             const next = event.target.value;
             // A new trigger means a new command list, so start at the top.
             if (parseInput(next).trigger !== input.trigger) setSelected(0);
+            // A stale result line would describe a command that is gone.
+            setStatus(null);
             setValue(next);
           }}
           onKeyDown={onKeyDown}
@@ -175,7 +203,7 @@ export function Launcher() {
           aria-label="Launcher command"
           spellCheck={false}
           autoComplete="off"
-          className="w-full bg-transparent text-[19px] leading-7 caret-indigo-600 placeholder:text-stone-500 focus-visible:outline-none"
+          className="w-full bg-transparent text-[19px] leading-7 caret-accent placeholder:text-muted focus-visible:outline-none"
         />
       </div>
 
@@ -197,23 +225,23 @@ export function Launcher() {
       )}
 
       {showEmpty && (
-        <p className="px-4 py-3 text-sm text-stone-500">
+        <p className="px-4 py-3 text-sm text-muted">
           No command matches {input.trigger}
         </p>
       )}
 
-      <div className="mt-auto flex items-center gap-3 border-t border-stone-200 px-4 py-2.5">
+      <div className="mt-auto flex items-center gap-3 border-t border-hairline px-4 py-2.5">
         {status ? (
           <span
             role="status"
             className={`truncate text-sm ${
-              status.kind === "ok" ? "text-stone-700" : "text-red-700"
+              status.kind === "ok" ? "text-body" : "text-danger"
             }`}
           >
             {status.text}
           </span>
         ) : (
-          <span className="text-xs text-stone-500">Esc hides the launcher</span>
+          <span className="text-xs text-muted">Esc hides the launcher</span>
         )}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from "react";
-import { DeleteButton } from "../components/DeleteButton";
+import { TodoRow } from "../components/TodoRow";
+import { addInputClass } from "../lib/styles";
 import { useStore } from "../store";
 
 export function TodosView() {
@@ -22,7 +23,7 @@ export function TodosView() {
     const t = title.trim();
     if (!t) return;
     setTitle("");
-    await addTodo(t);
+    await addTodo(list.id, t);
   };
 
   return (
@@ -35,39 +36,25 @@ export function TodosView() {
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Add a todo and press Enter"
             aria-label="New todo"
-            className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm placeholder:text-stone-500"
+            className={addInputClass}
           />
         </form>
       </header>
 
       {todos.length === 0 && (
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-muted">
           Nothing to do here. Add a todo above.
         </p>
       )}
 
       <ul className="flex flex-col">
         {todos.map((t) => (
-          <li
+          <TodoRow
             key={t.id}
-            className="group flex items-center gap-3 rounded-md px-2 py-2 hover:bg-stone-50"
-          >
-            <input
-              type="checkbox"
-              checked={t.done}
-              onChange={(e) => setTodoDone(t.id, e.target.checked)}
-              aria-label={`Mark "${t.title}" as ${t.done ? "not done" : "done"}`}
-              className="size-4 shrink-0 accent-indigo-600"
-            />
-            <span
-              className={`min-w-0 flex-1 truncate text-sm ${
-                t.done ? "text-stone-500 line-through" : ""
-              }`}
-            >
-              {t.title}
-            </span>
-            <DeleteButton label={t.title} onDelete={() => removeTodo(t.id)} />
-          </li>
+            todo={t}
+            onDone={(done) => setTodoDone(t.id, done)}
+            onDelete={() => removeTodo(t.id)}
+          />
         ))}
       </ul>
     </div>

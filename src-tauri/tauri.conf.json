@@ -17,7 +17,9 @@
         "width": 800,
         "height": 600,
         "minWidth": 640,
-        "minHeight": 400
+        "minHeight": 400,
+        "decorations": false,
+        "visible": false
       },
       {
         "label": "launcher",

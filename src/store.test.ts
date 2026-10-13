@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ProjectIssue } from "./db/queries";
 import type { Issue, Project, Todo, TodoList } from "./db/schema";
 import type { IssuePatch } from "./store";
 
@@ -21,14 +22,47 @@ const mocks = vi.hoisted(() => ({
   deleteTodoList: vi.fn<(id: string) => Promise<void>>(),
 
   listTodos: vi.fn<(listId: string) => Promise<Todo[]>>(),
+  listOpenTodos: vi.fn<(listId: string) => Promise<Todo[]>>(),
   addTodo: vi.fn<(listId: string, title: string) => Promise<void>>(),
   setTodoDone: vi.fn<(id: string, done: boolean) => Promise<void>>(),
   deleteTodo: vi.fn<(id: string) => Promise<void>>(),
+
+  listInProgressIssues: vi.fn<() => Promise<ProjectIssue[]>>(),
+}));
+
+const tauri = vi.hoisted(() => ({
+  invoke: vi.fn<(cmd: string, args?: object) => Promise<unknown>>(),
+  show: vi.fn<() => Promise<void>>(),
+  saveSetting: vi.fn<(key: string, value: unknown) => Promise<void>>(),
+  settings: {
+    theme: "system" as const,
+    accent: "indigo" as const,
+    launcherShortcut: "Ctrl+Space",
+    closeAfterCommand: true,
+    defaultTodoList: "inbox",
+    disabledCommands: [] as string[],
+    closeToTray: true,
+    startMinimized: false,
+  },
 }));
 
 vi.mock("./db/queries", () => ({
   INBOX_ID: "inbox",
   ...mocks,
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: tauri.invoke }));
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({ show: tauri.show, setFocus: vi.fn() }),
+}));
+vi.mock("./lib/settings", () => ({
+  DEFAULT_SETTINGS: tauri.settings,
+  getSettings: async () => ({ ...tauri.settings }),
+  saveSetting: tauri.saveSetting,
+}));
+vi.mock("./lib/appearance", () => ({
+  applyAppearance: vi.fn(),
+  watchSystemTheme: vi.fn(() => () => {}),
 }));
 
 import { useStore } from "./store";
@@ -65,8 +99,32 @@ const issue = (id: string, projectId: string, title: string): Issue => ({
   updatedAt: 0,
 });
 
+const projectIssue = (
+  id: string,
+  projectId: string,
+  title: string,
+): ProjectIssue => ({
+  ...issue(id, projectId, title),
+  status: "in_progress",
+  projectKey: "KEE",
+  projectName: "Keel",
+});
+
 beforeEach(() => {
-  vi.clearAllMocks();
+  // reset, not just clear: a test that replaces an implementation would
+  // otherwise leave it hanging for the tests after it.
+  vi.resetAllMocks();
+  tauri.invoke.mockResolvedValue("Ctrl+Space");
+  Object.assign(tauri.settings, {
+    theme: "system",
+    accent: "indigo",
+    launcherShortcut: "Ctrl+Space",
+    closeAfterCommand: true,
+    defaultTodoList: "inbox",
+    disabledCommands: [],
+    closeToTray: true,
+    startMinimized: false,
+  });
   useStore.setState({
     ready: false,
     view: null,
@@ -74,35 +132,48 @@ beforeEach(() => {
     lists: [],
     issues: [],
     todos: [],
+    dailyTodos: [],
+    dailyIssues: [],
+    settings: { ...tauri.settings },
   });
   mocks.listProjects.mockResolvedValue([]);
   mocks.listTodoLists.mockResolvedValue([]);
   mocks.listIssues.mockResolvedValue([]);
   mocks.listTodos.mockResolvedValue([]);
+  mocks.listOpenTodos.mockResolvedValue([]);
+  mocks.listInProgressIssues.mockResolvedValue([]);
 });
 
 describe("init", () => {
-  it("loads both sides and opens the first project", async () => {
+  it("loads both sides, shows the window and opens the Daily view", async () => {
     mocks.listProjects.mockResolvedValue([project("p1", "Keel", "KEE")]);
-    mocks.listIssues.mockResolvedValue([issue("i1", "p1", "Wire it up")]);
 
     await useStore.getState().init();
 
     expect(useStore.getState().ready).toBe(true);
-    expect(useStore.getState().view).toEqual({
-      type: "issues",
-      projectId: "p1",
-    });
-    expect(useStore.getState().issues).toHaveLength(1);
+    expect(tauri.show).toHaveBeenCalled();
+    expect(useStore.getState().view).toEqual({ type: "daily" });
   });
 
-  it("falls back to the Inbox when there are no projects", async () => {
+  it("keeps the window hidden when it should start minimized", async () => {
+    tauri.settings.startMinimized = true;
+
     await useStore.getState().init();
 
-    expect(useStore.getState().view).toEqual({
-      type: "todos",
-      listId: "inbox",
-    });
+    expect(tauri.show).not.toHaveBeenCalled();
+  });
+
+  it("loads open Inbox todos and in-progress issues", async () => {
+    mocks.listOpenTodos.mockResolvedValue([todo("t1", "inbox", "Milk")]);
+    mocks.listInProgressIssues.mockResolvedValue([
+      projectIssue("i1", "p1", "Wire it up"),
+    ]);
+
+    await useStore.getState().init();
+
+    expect(mocks.listOpenTodos).toHaveBeenCalledWith("inbox");
+    expect(useStore.getState().dailyTodos).toHaveLength(1);
+    expect(useStore.getState().dailyIssues).toHaveLength(1);
   });
 });
 
@@ -196,17 +267,14 @@ describe("removeProject", () => {
     });
   });
 
-  it("falls back to the Inbox when the last project is deleted", async () => {
+  it("falls back to the Daily view when the last project is deleted", async () => {
     useStore.setState({ projects: [project("p1", "Keel", "KEE")] });
     await useStore.getState().open({ type: "issues", projectId: "p1" });
     mocks.listProjects.mockResolvedValue([]);
 
     await useStore.getState().removeProject("p1");
 
-    expect(useStore.getState().view).toEqual({
-      type: "todos",
-      listId: "inbox",
-    });
+    expect(useStore.getState().view).toEqual({ type: "daily" });
   });
 
   it("leaves the open view alone when another project is deleted", async () => {
@@ -264,6 +332,18 @@ describe("patchIssue", () => {
     finishWrite();
     await pending;
   });
+
+  it("drops the issue from the Daily view when it stops being in progress", async () => {
+    useStore.setState({
+      view: { type: "daily" },
+      dailyIssues: [projectIssue("i1", "p1", "Wire it up")],
+    });
+    mocks.listInProgressIssues.mockResolvedValue([]);
+
+    await useStore.getState().patchIssue("i1", { status: "done" });
+
+    expect(useStore.getState().dailyIssues).toHaveLength(0);
+  });
 });
 
 describe("removeIssue", () => {
@@ -300,17 +380,14 @@ describe("renameList", () => {
 });
 
 describe("removeList", () => {
-  it("opens the Inbox when the open list is deleted", async () => {
+  it("opens the Daily view when the open list is deleted", async () => {
     await useStore.getState().open({ type: "todos", listId: "work" });
     mocks.listTodoLists.mockResolvedValue([list("inbox", "Inbox")]);
 
     await useStore.getState().removeList("work");
 
     expect(mocks.deleteTodoList).toHaveBeenCalledWith("work");
-    expect(useStore.getState().view).toEqual({
-      type: "todos",
-      listId: "inbox",
-    });
+    expect(useStore.getState().view).toEqual({ type: "daily" });
   });
 
   it("never deletes the Inbox", async () => {
@@ -321,22 +398,23 @@ describe("removeList", () => {
 });
 
 describe("addTodo", () => {
-  it("adds to the open list and reloads it", async () => {
+  it("adds to the given list and reloads it", async () => {
     await useStore.getState().open({ type: "todos", listId: "work" });
     mocks.listTodos.mockResolvedValue([todo("t1", "work", "Ship it")]);
 
-    await useStore.getState().addTodo("Ship it");
+    await useStore.getState().addTodo("work", "Ship it");
 
     expect(mocks.addTodo).toHaveBeenCalledWith("work", "Ship it");
     expect(useStore.getState().todos).toHaveLength(1);
   });
 
-  it("does nothing outside a todos view", async () => {
-    await useStore.getState().open({ type: "issues", projectId: "p1" });
+  it("reloads the Daily view when that is what is open", async () => {
+    await useStore.getState().open({ type: "daily" });
+    mocks.listOpenTodos.mockResolvedValue([todo("t1", "inbox", "Milk")]);
 
-    await useStore.getState().addTodo("Ship it");
+    await useStore.getState().addTodo("inbox", "Milk");
 
-    expect(mocks.addTodo).not.toHaveBeenCalled();
+    expect(useStore.getState().dailyTodos).toHaveLength(1);
   });
 });
 
@@ -350,6 +428,40 @@ describe("setTodoDone", () => {
 
     expect(mocks.setTodoDone).toHaveBeenCalledWith("t1", true);
     expect(useStore.getState().todos[0].done).toBe(true);
+  });
+
+  it("drops the todo from the Daily view as soon as it is done", async () => {
+    useStore.setState({
+      view: { type: "daily" },
+      dailyTodos: [todo("t1", "inbox", "Milk")],
+    });
+
+    await useStore.getState().setTodoDone("t1", true);
+
+    expect(useStore.getState().dailyTodos).toHaveLength(0);
+  });
+});
+
+describe("setSetting", () => {
+  it("stores the value and shows the window change right away", async () => {
+    await useStore.getState().setSetting("closeAfterCommand", false);
+
+    expect(tauri.saveSetting).toHaveBeenCalledWith("closeAfterCommand", false);
+    expect(useStore.getState().settings.closeAfterCommand).toBe(false);
+  });
+
+  it("keeps the shortcut Rust actually registered", async () => {
+    tauri.invoke.mockResolvedValue("Alt+Shift+Space");
+
+    await useStore.getState().setSetting("launcherShortcut", "Ctrl+K");
+
+    expect(useStore.getState().settings.launcherShortcut).toBe(
+      "Alt+Shift+Space",
+    );
+    expect(tauri.saveSetting).toHaveBeenCalledWith(
+      "launcherShortcut",
+      "Alt+Shift+Space",
+    );
   });
 });
 
@@ -369,6 +481,7 @@ describe("refresh", () => {
   });
 
   it("reloads the open issues view too", async () => {
+    mocks.listProjects.mockResolvedValue([project("p1", "Keel", "KEE")]);
     await useStore.getState().open({ type: "issues", projectId: "p1" });
     mocks.listIssues.mockResolvedValue([issue("i1", "p1", "Title")]);
 
@@ -376,5 +489,14 @@ describe("refresh", () => {
 
     expect(mocks.listIssues).toHaveBeenCalledWith("p1");
     expect(useStore.getState().issues).toHaveLength(1);
+  });
+
+  it("leaves the Daily view when the open list is deleted elsewhere", async () => {
+    await useStore.getState().open({ type: "todos", listId: "work" });
+    mocks.listTodoLists.mockResolvedValue([list("inbox", "Inbox")]);
+
+    await useStore.getState().refresh();
+
+    expect(useStore.getState().view).toEqual({ type: "daily" });
   });
 });

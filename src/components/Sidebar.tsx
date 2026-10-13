@@ -45,12 +45,12 @@ function Section({
   return (
     <section className="flex flex-col gap-1">
       <div className="flex items-center justify-between px-2">
-        <h2 className="text-sm font-medium text-stone-500">{title}</h2>
+        <h2 className="text-sm font-medium text-muted">{title}</h2>
         <button
           type="button"
           aria-label={addLabel}
           onClick={() => setOpen((o) => !o)}
-          className="rounded px-1.5 text-stone-500 hover:bg-stone-200 hover:text-stone-900"
+          className="rounded px-1.5 text-muted hover:bg-hover hover:text-ink"
         >
           +
         </button>
@@ -64,7 +64,7 @@ function Section({
             onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
             placeholder={placeholder}
             aria-label={placeholder}
-            className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm placeholder:text-stone-500"
+            className="w-full rounded-md border border-stone-300 bg-surface px-2 py-1.5 text-sm placeholder:text-muted"
           />
         </form>
       )}
@@ -95,7 +95,7 @@ function NavRow({
   return (
     <li
       className={`group flex items-center rounded-md pr-1 ${
-        active ? "bg-stone-200/70" : "hover:bg-stone-200/40"
+        active ? "bg-active" : "hover:bg-hover"
       }`}
     >
       {editing && onRename ? (
@@ -118,9 +118,7 @@ function NavRow({
           className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm"
         >
           <span className="truncate">{label}</span>
-          {hint && (
-            <span className="shrink-0 text-xs text-stone-500">{hint}</span>
-          )}
+          {hint && <span className="shrink-0 text-xs text-muted">{hint}</span>}
         </button>
       )}
       {onDelete && <DeleteButton label={label} onDelete={onDelete} />}
@@ -128,10 +126,31 @@ function NavRow({
   );
 }
 
+/** A row that belongs to a phase that is not built yet. */
+function PendingRow({ label, note }: { label: string; note: string }) {
+  return (
+    <li>
+      <button
+        type="button"
+        aria-disabled="true"
+        title={note}
+        className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm text-muted"
+      >
+        <span className="truncate">{label}</span>
+        <span className="shrink-0 text-xs">{note}</span>
+      </button>
+    </li>
+  );
+}
+
+/** "Ctrl+Space" reads better as two keys than as one string. */
+const shortcutKeys = (shortcut: string) => shortcut.split("+").join(" ");
+
 export function Sidebar() {
   const view = useStore((s) => s.view);
   const projects = useStore((s) => s.projects);
   const lists = useStore((s) => s.lists);
+  const shortcut = useStore((s) => s.settings.launcherShortcut);
   const open = useStore((s) => s.open);
   const addProject = useStore((s) => s.addProject);
   const renameProject = useStore((s) => s.renameProject);
@@ -143,8 +162,17 @@ export function Sidebar() {
   return (
     <nav
       aria-label="Workspace"
-      className="flex w-60 shrink-0 flex-col gap-6 border-r border-stone-200 bg-stone-50 px-3 py-5"
+      className="flex w-60 shrink-0 flex-col gap-6 border-r border-hairline bg-ground px-3 py-5"
     >
+      <ul className="flex flex-col">
+        <NavRow
+          label="Daily"
+          active={view?.type === "daily"}
+          editable={false}
+          onOpen={() => open({ type: "daily" })}
+        />
+      </ul>
+
       <Section
         title="Projects"
         addLabel="New project"
@@ -152,9 +180,7 @@ export function Sidebar() {
         onAdd={addProject}
       >
         {projects.length === 0 && (
-          <li className="px-2 py-1.5 text-sm text-stone-500">
-            No projects yet
-          </li>
+          <li className="px-2 py-1.5 text-sm text-muted">No projects yet</li>
         )}
         {projects.map((p) => (
           <NavRow
@@ -189,6 +215,32 @@ export function Sidebar() {
           />
         ))}
       </Section>
+
+      <section className="flex flex-col gap-1">
+        <h2 className="px-2 text-sm font-medium text-muted">opencode</h2>
+        <ul className="flex flex-col">
+          <PendingRow label="Sessions" note="Comes in phase 3" />
+        </ul>
+      </section>
+
+      <div className="flex-1" />
+
+      <div className="flex flex-col gap-1 px-2 text-xs text-muted">
+        <span>Open launcher</span>
+        <span className="w-fit rounded-[5px] border border-hairline px-1.5 py-0.5 font-mono">
+          {shortcutKeys(shortcut)}
+        </span>
+      </div>
+
+      <ul className="flex flex-col">
+        <NavRow
+          label="Settings"
+          active={view?.type === "settings"}
+          editable={false}
+          onOpen={() => open({ type: "settings" })}
+        />
+        <PendingRow label="Sign in" note="Comes with the phone link" />
+      </ul>
     </nav>
   );
 }

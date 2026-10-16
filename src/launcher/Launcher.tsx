@@ -192,7 +192,7 @@ export function Launcher() {
     );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-hairline bg-surface shadow-[0_20px_48px_-16px_rgba(28,28,26,0.28)]">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-hairline bg-surface shadow-float">
       <div className="border-b border-hairline px-4 py-3.5">
         <input
           ref={inputRef}

@@ -18,6 +18,17 @@
   --color-active: #e9e8e4;
   --color-warn: #d97706;
   --color-danger: #b91c1c;
+
+  /* The one soft shadow, for surfaces that float above the page: the
+     launcher and dialogs. Never stacked. */
+  --shadow-float: 0 20px 48px -16px rgb(28 28 26 / 0.28);
+}
+
+/* The engine draws the scrollbars, the todo checkbox and the caret, so it is
+   told which palette it is on. The dark block below overrides this: both
+   selectors weigh the same, so this one has to come first. */
+:root {
+  color-scheme: light;
 }
 
 /* Teal and orange are the accent alternatives listed in DESIGN.md. */
@@ -33,6 +44,9 @@
    neutrals shifted down, with ink and surface swapped and the accent lifted
    one step so it keeps 4.5:1 on the dark ground. */
 [data-theme="dark"] {
+  /* Scrollbars, the todo checkbox and the caret are drawn by the engine, so
+     they need to be told which palette they are sitting on. */
+  color-scheme: dark;
   --color-surface: #1c1c1a;
   --color-ground: #141413;
   --color-ink: #f2f2ef;

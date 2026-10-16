@@ -31,7 +31,7 @@ const THEMES: { id: Theme; label: string }[] = [
 
 export function SettingsView() {
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-10 px-8 py-10">
+    <div className="mx-auto flex max-w-3xl flex-col gap-8 px-8 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
       <GeneralGroup />
       <LauncherGroup />

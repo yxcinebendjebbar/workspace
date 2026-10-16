@@ -72,7 +72,7 @@ export function Dialog({
           aria-label={title}
           tabIndex={-1}
           onKeyDown={keepTabInside}
-          className="w-full max-w-xl rounded-xl border border-hairline bg-surface p-6 shadow-lg outline-none"
+          className="w-full max-w-xl rounded-[14px] border border-hairline bg-surface p-6 shadow-float outline-none"
         >
           <h2 className="mb-4 text-base font-semibold">{title}</h2>
           {children}

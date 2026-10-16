@@ -45,6 +45,8 @@ Accent is a Settings choice, applied as `data-accent` on `<html>`:
 
 Theme is `data-theme` on `<html>`: `light`, `dark`, or `system`, where `system` follows the OS while the app runs. Both windows paint it; the main window paints the saved value, and every window paints the system value first so a dark machine never flashes white.
 
+`color-scheme` follows the palette as well, so the chrome the engine draws itself — scrollbars, the todo checkbox, the caret — is dark on a dark window instead of staying light. The two rules weigh the same, so the light default is declared above the dark block on purpose.
+
 Rules:
 - Accent is used sparingly: done status, commands in the launcher, the text caret, focus ring, and text links. The primary button is ink, not accent.
 - Text contrast is at least 4.5:1 (3:1 at 24px and up). Do not use lighter greys than `muted` for text.
@@ -102,7 +104,7 @@ Landing page:
 | Pills, toggles | 999 |
 
 - Use a border, not a shadow, to define cards and inputs.
-- Shadows are reserved for surfaces that float above others: the app window mock, the launcher, notifications. One soft shadow, never stacked.
+- Shadows are reserved for surfaces that float above others: the app window mock, the launcher, notifications. One soft shadow, never stacked; it is the `--shadow-float` token, used by the launcher and dialogs. Do not reach for `shadow-lg`, which is two shadows.
 - Do not apply one radius to everything. Radius follows size.
 
 ## Components

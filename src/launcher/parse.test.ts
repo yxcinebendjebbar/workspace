@@ -9,7 +9,6 @@ import {
 
 const makeCommand = (trigger: string): Command => ({
   trigger,
-  title: trigger,
   description: "",
   run: async () => ({ ok: true, message: "" }),
 });

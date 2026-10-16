@@ -5,7 +5,6 @@ import type { Command } from "./types";
 
 export const todo: Command = {
   trigger: "/todo",
-  title: "Add todo",
   description: "Add a todo",
   argHint: "What to add",
   async run(args) {

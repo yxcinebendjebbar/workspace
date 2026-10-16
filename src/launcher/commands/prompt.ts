@@ -6,7 +6,6 @@ import type { Command } from "./types";
 
 export const prompt: Command = {
   trigger: "/prompt",
-  title: "Prompt",
   description: "Send to opencode",
   argHint: "What to ask opencode",
   async run(args) {

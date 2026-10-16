@@ -39,10 +39,9 @@ function CommandRow({
       type="button"
       onClick={() => onPick(command)}
       aria-current={active ? "true" : undefined}
-      aria-disabled={command.disabled || undefined}
       className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left ${
         active ? "bg-active" : "hover:bg-hover"
-      } ${command.disabled ? "opacity-60" : ""}`}
+      }`}
     >
       <code className="shrink-0 font-mono text-sm font-medium text-accent">
         {command.trigger}

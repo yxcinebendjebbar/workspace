@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "launcher",
+  "description": "The launcher window: commands that read and write the same database, and nothing else. It has no file, dialog, autostart, or window-control access, so a launcher bug cannot reach the filesystem.",
+  "windows": ["launcher"],
+  "permissions": ["core:default", "sql:default", "sql:allow-execute"]
+}

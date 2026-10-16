@@ -38,6 +38,7 @@
       }
     ],
     "security": {
+      "freezePrototype": true,
       "csp": {
         "default-src": "'self'",
         "script-src": "'self'",
@@ -46,7 +47,9 @@
         "img-src": "'self' data:",
         "connect-src": "ipc: http://ipc.localhost",
         "object-src": "'none'",
-        "frame-src": "'none'"
+        "frame-src": "'none'",
+        "base-uri": "'none'",
+        "form-action": "'none'"
       }
     }
   },

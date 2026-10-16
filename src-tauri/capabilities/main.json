@@ -1,22 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Permissions for the main and launcher windows",
-  "windows": ["main", "launcher"],
+  "identifier": "main",
+  "description": "The main window: workspace data, Settings, and the custom title bar.",
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "sql:default",
-    "sql:allow-load",
-    "sql:allow-select",
     "sql:allow-execute",
-    "global-shortcut:allow-register",
-    "global-shortcut:allow-unregister",
-    "global-shortcut:allow-is-registered",
     "core:window:allow-show",
     "core:window:allow-set-focus",
     "core:window:allow-minimize",
-    "core:window:allow-maximize",
-    "core:window:allow-unmaximize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-start-dragging",
@@ -27,7 +20,6 @@
     "dialog:allow-save",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
-    "opener:allow-open-path",
     "opener:allow-reveal-item-in-dir"
   ]
 }

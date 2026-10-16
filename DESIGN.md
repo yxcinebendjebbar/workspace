@@ -117,7 +117,11 @@ Landing page:
 
 **Todo row.** Native checkbox (accent colored), title (struck through and muted when done), delete. Done items sort to the bottom.
 
-**Sidebar row.** Name, optional muted hint (project key), delete on hover. Selected row uses `active` at 70% opacity and `aria-current="page"`. A row that belongs to an unbuilt phase (Sessions, Sign in) is `muted`, not clickable, and carries a one-line note such as "Comes in phase 3" instead of a hover tooltip.
+**Session row.** Title (truncates), one muted meta line under it saying when it started or finished and which folder opencode worked in, and a status pill at the right. Running sessions come first, under Running and Finished section labels with counts.
+
+**Session pill.** Hairline pill: the 16px status shape in its tone, then the state in `body`. Running is the in-progress half-fill in amber, succeeded the filled check in accent, failed the ring with x, interrupted the plain ring. The last two stay `muted` like the issue statuses they borrow from, so the word in the pill is what names them.
+
+**Sidebar row.** Name, optional muted hint (project key), delete on hover. Selected row uses `active` at 70% opacity and `aria-current="page"`. A row that belongs to an unbuilt phase (Sign in) is `muted`, not clickable, and carries a one-line note such as "Comes with the phone link" instead of a hover tooltip.
 
 **Section label.** 14px, weight 500, `muted`. Used for sidebar sections, issue status groups, and the two Daily lists. A count follows the label in normal weight.
 
@@ -129,7 +133,7 @@ Landing page:
 
 **Toggle.** 44 by 24 track, pill radius, `ink` when on and `active` when off, with a `surface` knob that slides 20px. Ink, not accent. A toggle that belongs to an unbuilt phase is `disabled` at 40% opacity.
 
-**Segmented.** Real radio inputs in a hairline-bordered pill, 8px radius, 2px inset. The chosen segment uses `active` with weight 500; the others are `muted`. Used for theme, accent, and server mode.
+**Segmented.** Real radio inputs in a hairline-bordered pill, 8px radius, 2px inset. The chosen segment uses `active` with weight 500; the others are `muted`. Used for theme and accent.
 
 **Dialog.** A panel over the page, not a new window. Backdrop is `ink` at 30% and is a real button labelled "Close"; the panel is `surface`, 14px radius, hairline border, 24px padding, 16px/600 title, and one soft shadow (it floats). Escape closes it and a click on the backdrop closes it; Tab stays inside. The first focusable control takes focus on open.
 

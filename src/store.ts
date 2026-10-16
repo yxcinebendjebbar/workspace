@@ -11,11 +11,15 @@ import {
   type Settings,
   saveSetting,
 } from "./lib/settings";
+import { opencode } from "./opencode/client";
+import { onSessionFinished, reportFinished, watch } from "./opencode/events";
+import { type OpenCodeSession, toSession } from "./opencode/sessions";
 
 export type View =
   | { type: "daily" }
   | { type: "issues"; projectId: string }
   | { type: "todos"; listId: string }
+  | { type: "sessions" }
   | { type: "settings" };
 
 export type IssuePatch = Partial<
@@ -32,6 +36,14 @@ interface Store {
   todos: Todo[];
   dailyTodos: Todo[];
   dailyIssues: q.ProjectIssue[];
+  /** What opencode has run, newest first. */
+  sessions: OpenCodeSession[];
+  /** True once a session read has reached opencode. */
+  opencodeConnected: boolean;
+  /** The version the CLI reported; empty for a server Keel was pointed at. */
+  opencodeVersion: string;
+  /** Why talking to opencode failed, in one line. */
+  opencodeError: string | null;
   /** Set when startup could not finish. The shell still renders so it is readable. */
   initError: string | null;
 
@@ -39,6 +51,10 @@ interface Store {
   open: (view: View) => Promise<void>;
   /** Reloads lists and the open view, e.g. after the launcher wrote something. */
   refresh: () => Promise<void>;
+  /** Connects to opencode and follows its sessions. Safe to call again. */
+  watchOpenCode: () => Promise<void>;
+  /** Rereads the session list from opencode. */
+  reloadSessions: () => Promise<void>;
   setSetting: <K extends keyof Settings>(
     key: K,
     value: Settings[K],
@@ -68,7 +84,25 @@ const registerShortcut = (key: string) =>
 const setCloseToTray = (closeToTray: boolean) =>
   invoke("set_close_to_tray", { closeToTray });
 
+/** How many sessions a window keeps: enough to see what just ran. */
+const SESSION_LIMIT = 20;
+/** opencode can announce the end of one turn with more than one event. */
+const RELOAD_DEBOUNCE_MS = 250;
+
 export const useStore = create<Store>((set, get) => {
+  let stopWatching: (() => void) | null = null;
+  let watchedClient: unknown = null;
+  let reloadTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Session events arrive in bursts, so a reload waits for a quiet moment. */
+  const scheduleReload = () => {
+    clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(
+      () => void get().reloadSessions(),
+      RELOAD_DEBOUNCE_MS,
+    );
+  };
+
   const reloadIssues = async () => {
     const v = get().view;
     if (v?.type === "issues") set({ issues: await q.listIssues(v.projectId) });
@@ -121,6 +155,10 @@ export const useStore = create<Store>((set, get) => {
     todos: [],
     dailyTodos: [],
     dailyIssues: [],
+    sessions: [],
+    opencodeConnected: false,
+    opencodeVersion: "",
+    opencodeError: null,
     initError: null,
 
     init: async () => {
@@ -185,6 +223,81 @@ export const useStore = create<Store>((set, get) => {
         return;
       }
       await reloadCurrent();
+      // Only a window already talking to opencode rereads its sessions, so
+      // this never starts the service by itself.
+      if (get().opencodeConnected) await get().reloadSessions();
+    },
+
+    watchOpenCode: async () => {
+      const url = get().settings.opencodeServerUrl;
+      const result = await opencode(url);
+      if (!result.ok) {
+        set({ opencodeError: result.message, opencodeConnected: false });
+        return;
+      }
+      set({
+        opencodeConnected: true,
+        opencodeVersion: result.version,
+        opencodeError: null,
+      });
+
+      // A different client means a different server, so the old stream is
+      // listening to the wrong one.
+      if (watchedClient !== result.client) {
+        stopWatching?.();
+        watchedClient = result.client;
+        stopWatching = watch(result.client, (signal) => {
+          if (signal.kind === "finished") {
+            // Only a session this window watched run is news; opencode reports
+            // one finish more than once, and the second report finds it done.
+            const running = get().sessions.find(
+              (s) => s.id === signal.sessionId && s.status === "running",
+            );
+            if (running) {
+              reportFinished({
+                ...running,
+                status: "finished",
+                finished: running.finished ?? Date.now(),
+              });
+            }
+          }
+          scheduleReload();
+        });
+      }
+
+      await get().reloadSessions();
+    },
+
+    reloadSessions: async () => {
+      const result = await opencode(get().settings.opencodeServerUrl);
+      if (!result.ok) {
+        set({ opencodeError: result.message, opencodeConnected: false });
+        return;
+      }
+      const directory = get().settings.opencodeDirectory;
+      try {
+        const [listed, active] = await Promise.all([
+          result.client.session.list({
+            limit: SESSION_LIMIT,
+            order: "desc",
+            ...(directory ? { directory } : {}),
+          }),
+          result.client.session.active(),
+        ]);
+        const running = new Set(Object.keys(active));
+        set({
+          sessions: listed.data.map((info) =>
+            toSession(info, running.has(info.id)),
+          ),
+          opencodeConnected: true,
+          opencodeError: null,
+        });
+      } catch (error) {
+        set({
+          opencodeError: `Keel could not read sessions from opencode (${errorMessage(error)}).`,
+          opencodeConnected: false,
+        });
+      }
     },
 
     setSetting: async (key, value) => {
@@ -301,4 +414,14 @@ export const useStore = create<Store>((set, get) => {
       await q.deleteTodo(id);
     },
   };
+});
+
+/**
+ * A session that stops working shows as finished at once; the reload queued
+ * behind it replaces the row with what opencode actually recorded.
+ */
+onSessionFinished((session) => {
+  useStore.setState((state) => ({
+    sessions: state.sessions.map((s) => (s.id === session.id ? session : s)),
+  }));
 });

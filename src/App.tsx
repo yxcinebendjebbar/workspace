@@ -9,12 +9,15 @@ import { IssuesView } from "./views/IssuesView";
 import { TodosView } from "./views/TodosView";
 
 /**
- * Settings is the one view that pulls in the backup parser and the dialog,
- * filesystem and autostart plugins. Nothing else needs them, so it loads on
- * open instead of at startup.
+ * Settings pulls in the backup parser and the dialog, filesystem and autostart
+ * plugins; Sessions pulls in the opencode bridge. Nothing else needs either,
+ * so they load on open instead of at startup.
  */
 const SettingsView = lazy(() =>
   import("./views/SettingsView").then((m) => ({ default: m.SettingsView })),
+);
+const SessionsView = lazy(() =>
+  import("./views/SessionsView").then((m) => ({ default: m.SessionsView })),
 );
 
 export default function App() {
@@ -61,6 +64,11 @@ export default function App() {
           {ready && view?.type === "daily" && <DailyView />}
           {ready && view?.type === "issues" && <IssuesView />}
           {ready && view?.type === "todos" && <TodosView />}
+          {ready && view?.type === "sessions" && (
+            <Suspense fallback={null}>
+              <SessionsView />
+            </Suspense>
+          )}
           {ready && view?.type === "settings" && (
             <Suspense fallback={null}>
               <SettingsView />

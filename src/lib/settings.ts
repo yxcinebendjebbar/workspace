@@ -18,6 +18,10 @@ export interface Settings {
   startMinimized: boolean;
   theme: Theme;
   accent: Accent;
+  /** Folder opencode works in. Empty means a prompt waits for one. */
+  opencodeDirectory: string;
+  /** A local opencode server to use instead of the shared service. */
+  opencodeServerUrl: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -29,6 +33,8 @@ export const DEFAULT_SETTINGS: Settings = {
   startMinimized: false,
   theme: "system",
   accent: "indigo",
+  opencodeDirectory: "",
+  opencodeServerUrl: "",
 };
 
 /** What each enum setting accepts. A stray value must not reach the DOM. */
@@ -72,7 +78,7 @@ const read = <K extends keyof Settings>(
 
 export const getSettings = async (): Promise<Settings> => {
   // One read for all of them. This runs on the startup path and on every
-  // /todo, so a query per key would be eight round trips through the plugin.
+  // /todo, so a query per key would be a round trip through the plugin each.
   const stored = new Map(
     (await listSettings()).map((row) => [row.key, row.value]),
   );

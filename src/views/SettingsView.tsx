@@ -36,42 +36,7 @@ export function SettingsView() {
       <GeneralGroup />
       <LauncherGroup />
       <TweaksGroup />
-      <Group
-        title="opencode"
-        note="These controls take effect in phase 3, when Keel starts and talks to opencode."
-      >
-        <Row label="Project folder">
-          <input
-            disabled
-            placeholder="The folder opencode works in"
-            className={inputClass}
-          />
-        </Row>
-        <Row label="Server mode">
-          <Segmented
-            label="Server mode"
-            disabled
-            options={[
-              { id: "managed", label: "Keel starts it" },
-              { id: "existing", label: "Already running" },
-            ]}
-            value="managed"
-            onChange={() => {}}
-          />
-        </Row>
-        <Row label="Server address">
-          <input
-            disabled
-            placeholder="http://127.0.0.1:port"
-            className={inputClass}
-          />
-        </Row>
-        <Row label="Server status" description="Stopped">
-          <button type="button" disabled className={smallSecondaryButtonClass}>
-            Restart
-          </button>
-        </Row>
-      </Group>
+      <OpenCodeGroup />
       <Group
         title="Phone link"
         note="These controls take effect in phase 4, when the relay and the phone app exist."
@@ -108,6 +73,98 @@ export function SettingsView() {
       </Group>
       <DataGroup />
     </div>
+  );
+}
+
+function OpenCodeGroup() {
+  const directory = useStore((s) => s.settings.opencodeDirectory);
+  const serverUrl = useStore((s) => s.settings.opencodeServerUrl);
+  const version = useStore((s) => s.opencodeVersion);
+  const connected = useStore((s) => s.opencodeConnected);
+  const error = useStore((s) => s.opencodeError);
+  const watchOpenCode = useStore((s) => s.watchOpenCode);
+  const setSetting = useStore((s) => s.setSetting);
+  const [address, setAddress] = useState(serverUrl);
+  const [pickError, setPickError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  // The stored address can change from elsewhere; keep the field in step.
+  useEffect(() => setAddress(serverUrl), [serverUrl]);
+
+  const pickFolder = async () => {
+    setPickError(null);
+    try {
+      const picked = await openDialog({
+        directory: true,
+        multiple: false,
+        title: "Choose the folder opencode works in",
+      });
+      if (typeof picked === "string") {
+        await setSetting("opencodeDirectory", picked);
+      }
+    } catch (e) {
+      setPickError(`That folder was not usable (${errorMessage(e)}).`);
+    }
+  };
+
+  const check = async () => {
+    setChecking(true);
+    await watchOpenCode();
+    setChecking(false);
+  };
+
+  const status = !connected
+    ? "Not checked yet"
+    : version
+      ? `Connected to opencode ${version}`
+      : "Connected";
+
+  return (
+    <Group
+      title="opencode"
+      note="Keel talks to the opencode server on this machine and never runs one of its own."
+    >
+      <Row
+        label="Project folder"
+        description={pickError ?? (directory || "The folder opencode works in")}
+      >
+        <button
+          type="button"
+          onClick={() => void pickFolder()}
+          className={smallSecondaryButtonClass}
+        >
+          {directory ? "Change" : "Choose"}
+        </button>
+      </Row>
+      <Row
+        label="Server address"
+        description="Leave empty to use the shared opencode service."
+      >
+        <input
+          value={address}
+          aria-label="Server address"
+          placeholder="http://127.0.0.1:port"
+          onChange={(e) => setAddress(e.target.value)}
+          onBlur={() => void setSetting("opencodeServerUrl", address.trim())}
+          className={inputClass}
+        />
+      </Row>
+      {error && (
+        <p role="alert" className="px-4 py-3 text-sm text-danger">
+          {error}
+        </p>
+      )}
+      <Row label="Connection" description={status}>
+        <button
+          type="button"
+          disabled={checking}
+          onClick={() => void check()}
+          className={smallSecondaryButtonClass}
+        >
+          {checking ? "Checking" : "Check"}
+        </button>
+      </Row>
+    </Group>
   );
 }
 

@@ -175,14 +175,16 @@ Delivered: SQLite schema, projects, issues, todo lists, todos, sidebar, issue an
 
 ### Phase 3: opencode bridge
 Before writing any code, read the current opencode documentation (server mode and the JS SDK). Do not guess endpoints, event names, or types. If the docs and this file disagree, the docs win; tell the human.
-- [ ] Detect an opencode install. If missing, show a clear message with how to install it.
-- [ ] Start opencode in server mode as a managed child process (scoped shell permission), on a free local port, and stop it on app quit. Reuse an already running server if the user configured one.
-- [ ] Create `src/opencode/` with a typed client wrapper over the SDK, a Zustand slice for sessions (id, title, status, started, finished), and an event subscription that updates it.
-- [ ] Enable `/prompt <text>`: send to the active or a new session in a configured project directory; show "Sent to opencode".
-- [ ] Add a Sessions view in the main window listing running and finished sessions (use the pill styles in `DESIGN.md`).
-- [ ] Emit an internal `opencode:finished` event when a session completes, for phase 4 to forward.
-- [ ] Settings needed: project directory, optional server URL. The `settings` table already exists (migration `0002`), so add keys to it rather than starting a new migration for settings alone.
-- Acceptance: `/prompt` starts work in opencode; the Sessions view shows progress and completion; quitting the app stops the child process.
+- [x] Detect an opencode install. If missing, show a clear message with how to install it.
+- [x] Start opencode's shared background service when it is not running, and reuse it when it is. Keel never runs a private server and never stops the service, because every other opencode client on the machine shares it. A loopback address in Settings overrides discovery. (Approved change to the original item, which had Keel own a child process.)
+- [x] Create `src/opencode/` with a typed client wrapper over the SDK, a Zustand slice for sessions (id, title, status, started, finished), and an event subscription that updates it.
+- [x] Enable `/prompt <text>`: continues the newest session in the configured project directory, or starts one there; show "Sent to opencode".
+- [x] Add a Sessions view in the main window listing running and finished sessions (use the pill styles in `DESIGN.md`).
+- [x] Emit an internal `opencode:finished` event when a session completes, for phase 4 to forward.
+- [x] Settings needed: project directory, optional server URL. The `settings` table already exists (migration `0002`), so keys went into it rather than into a new migration for settings alone.
+- [x] Rust resolves the CLI and the service registration and hands the renderer a URL and a password; the renderer then talks to opencode over HTTP itself. No window needs a shell permission for opencode, because nothing user-typed ever reaches a command line.
+- Acceptance: `/prompt` starts work in opencode; the Sessions view shows progress and completion; quitting the app leaves the shared service running, because it is not Keel's to stop.
+- For phase 4: only a window that is watching a server hears `opencode:finished`, and today the Sessions view is what starts the watch. Phase 4 must watch from the main window as soon as it connects, so a notification does not depend on the Sessions view being open.
 
 ### Phase 4: phone link
 - [ ] Create `shared/protocol.ts` with Zod schemas for all relay messages (pairing, notify, file offer, file received, ack). Version the protocol.
@@ -204,7 +206,7 @@ The Settings screen, the dark theme, the title bar, and the theme and shortcut s
 
 - Final app name and logo.
 - Launcher shortcut default (currently `Ctrl+Space`).
-- The sidebar's Sessions and Sign in rows are placeholders until phases 3 and 4; each names the phase it arrives in and shows no content or counts yet.
+- The sidebar's Sign in row is a placeholder until phase 4; it names the phase it arrives in and shows no content or counts yet.
 - Push strategy for the phone if Web Push on Workers is not viable.
 - Relay domain and Cloudflare account setup (the human provides credentials and secrets).
 - Whether sync across multiple PCs is wanted (not planned; local-first only for now).

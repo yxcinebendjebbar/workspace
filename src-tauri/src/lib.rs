@@ -13,6 +13,8 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_plugin_log::Builder as LogBuilder;
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
 
+mod opencode;
+
 const MAIN_LABEL: &str = "main";
 const LAUNCHER_LABEL: &str = "launcher";
 /// The database the SQL plugin opens; the frontend uses the same string.
@@ -125,6 +127,18 @@ fn set_close_to_tray(close_to_tray: bool) {
     CLOSE_TO_TRAY.store(close_to_tray, Ordering::SeqCst);
 }
 
+/// Joins the opencode server: the shared one the CLI runs, or a local server
+/// Settings was pointed at. Looking around for opencode runs CLI processes, so
+/// the wait happens off the main thread.
+#[tauri::command]
+async fn opencode_connect(server_url: Option<String>) -> opencode::Connection {
+    tauri::async_runtime::spawn_blocking(move || opencode::connect(server_url))
+        .await
+        .unwrap_or_else(|err| opencode::Connection::Failed {
+            message: format!("could not look for opencode: {err}"),
+        })
+}
+
 /// Closing the windows would take the process (and the shortcut) with it, so the
 /// app lives in the tray and only the "Quit" item ends it.
 fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
@@ -209,7 +223,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             hide_launcher,
             set_launcher_shortcut,
-            set_close_to_tray
+            set_close_to_tray,
+            opencode_connect
         ])
         .setup(|app| {
             // The saved keys live in SQLite, which Rust cannot read before the

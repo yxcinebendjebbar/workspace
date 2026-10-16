@@ -30,6 +30,15 @@ const mocks = vi.hoisted(() => ({
   listInProgressIssues: vi.fn<() => Promise<ProjectIssue[]>>(),
 }));
 
+// The opencode bridge, reduced to a fake server the store can read from.
+const opencode = vi.hoisted(() => ({
+  connect: vi.fn(),
+  watch: vi.fn<
+    (client: unknown, onSignal: (signal: unknown) => void) => () => void
+  >(() => () => {}),
+  session: { list: vi.fn(), active: vi.fn() },
+}));
+
 const tauri = vi.hoisted(() => ({
   invoke: vi.fn<(cmd: string, args?: object) => Promise<unknown>>(),
   show: vi.fn<() => Promise<void>>(),
@@ -44,6 +53,8 @@ const tauri = vi.hoisted(() => ({
     disabledCommands: [] as string[],
     closeToTray: true,
     startMinimized: false,
+    opencodeDirectory: "",
+    opencodeServerUrl: "",
   },
 }));
 
@@ -65,7 +76,15 @@ vi.mock("./lib/appearance", () => ({
   applyAppearance: vi.fn(),
   watchSystemTheme: vi.fn(() => () => {}),
 }));
+vi.mock("./opencode/client", () => ({ opencode: opencode.connect }));
+// Only the stream is faked: the finished-session listener stays real, so the
+// test can see what the store does with one.
+vi.mock("./opencode/events", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./opencode/events")>()),
+  watch: opencode.watch,
+}));
 
+import { onSessionFinished } from "./opencode/events";
 import { useStore } from "./store";
 
 const project = (id: string, name: string, key: string): Project => ({
@@ -116,6 +135,11 @@ beforeEach(() => {
   // otherwise leave it hanging for the tests after it.
   vi.resetAllMocks();
   tauri.invoke.mockResolvedValue("Ctrl+Space");
+  opencode.connect.mockResolvedValue({
+    ok: true,
+    version: "2.0.29",
+    client: { session: opencode.session },
+  });
   tauri.getSettings.mockImplementation(async () => ({ ...tauri.settings }));
   Object.assign(tauri.settings, {
     theme: "system",
@@ -136,6 +160,10 @@ beforeEach(() => {
     todos: [],
     dailyTodos: [],
     dailyIssues: [],
+    sessions: [],
+    opencodeConnected: false,
+    opencodeVersion: "",
+    opencodeError: null,
     initError: null,
     settings: { ...tauri.settings },
   });
@@ -218,6 +246,112 @@ describe("open", () => {
 
     expect(mocks.listTodos).toHaveBeenCalledWith("work");
     expect(useStore.getState().todos).toHaveLength(1);
+  });
+});
+
+const record = (id: string, over: object = {}) => ({
+  id,
+  title: `Session ${id}`,
+  time: { created: 1000, updated: 2000 },
+  location: { directory: "D:\\work" },
+  ...over,
+});
+
+describe("sessions", () => {
+  it("shows what opencode is running and what it finished", async () => {
+    opencode.session.list.mockResolvedValue({
+      data: [
+        record("ses_a"),
+        record("ses_b", {
+          outcome: "failed",
+          time: { created: 3000, idle: 3500 },
+        }),
+      ],
+    });
+    opencode.session.active.mockResolvedValue({ ses_a: { type: "running" } });
+
+    await useStore.getState().watchOpenCode();
+
+    const sessions = useStore.getState().sessions;
+    expect(sessions.map((s) => [s.id, s.status])).toEqual([
+      ["ses_a", "running"],
+      ["ses_b", "finished"],
+    ]);
+    expect(sessions[1].finished).toBe(3500);
+    expect(useStore.getState().opencodeConnected).toBe(true);
+  });
+
+  it("reads sessions from the configured server and folder", async () => {
+    useStore.setState((state) => ({
+      settings: {
+        ...state.settings,
+        opencodeServerUrl: "http://127.0.0.1:4096",
+        opencodeDirectory: "D:\\work",
+      },
+    }));
+    opencode.session.list.mockResolvedValue({ data: [] });
+    opencode.session.active.mockResolvedValue({});
+
+    await useStore.getState().reloadSessions();
+
+    expect(opencode.connect).toHaveBeenCalledWith("http://127.0.0.1:4096");
+    expect(opencode.session.list).toHaveBeenCalledWith({
+      limit: 20,
+      order: "desc",
+      directory: "D:\\work",
+    });
+  });
+
+  it("keeps the reason opencode could not be reached", async () => {
+    opencode.connect.mockResolvedValue({
+      ok: false,
+      message: "opencode is not installed.",
+    });
+
+    await useStore.getState().watchOpenCode();
+
+    expect(useStore.getState().opencodeError).toBe(
+      "opencode is not installed.",
+    );
+    expect(useStore.getState().opencodeConnected).toBe(false);
+    expect(useStore.getState().sessions).toEqual([]);
+  });
+
+  it("reports a finish once, for a session it watched run", async () => {
+    vi.useFakeTimers();
+    try {
+      opencode.session.list.mockResolvedValue({ data: [record("ses_a")] });
+      opencode.session.active.mockResolvedValue({ ses_a: { type: "running" } });
+      const heard: string[] = [];
+      const stop = onSessionFinished((s) => heard.push(s.id));
+
+      await useStore.getState().watchOpenCode();
+      const onSignal = opencode.watch.mock.calls[0][1];
+
+      onSignal({ kind: "finished", sessionId: "ses_a" });
+      expect(useStore.getState().sessions[0].status).toBe("finished");
+
+      // opencode announces one finish with more than one event.
+      onSignal({ kind: "finished", sessionId: "ses_a" });
+      expect(heard).toEqual(["ses_a"]);
+
+      // The queued reload then replaces the row with opencode's own record.
+      opencode.session.list.mockResolvedValue({
+        data: [
+          record("ses_a", {
+            outcome: "succeeded",
+            time: { created: 1000, updated: 2500, idle: 2400 },
+          }),
+        ],
+      });
+      // opencode has stopped listing it as active by the time we reread.
+      opencode.session.active.mockResolvedValue({});
+      await vi.advanceTimersByTimeAsync(300);
+      expect(useStore.getState().sessions[0].finished).toBe(2400);
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

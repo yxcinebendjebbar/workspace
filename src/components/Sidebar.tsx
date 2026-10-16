@@ -219,7 +219,12 @@ export function Sidebar() {
       <section className="flex flex-col gap-1">
         <h2 className="px-2 text-sm font-medium text-muted">opencode</h2>
         <ul className="flex flex-col">
-          <PendingRow label="Sessions" note="Comes in phase 3" />
+          <NavRow
+            label="Sessions"
+            active={view?.type === "sessions"}
+            editable={false}
+            onOpen={() => open({ type: "sessions" })}
+          />
         </ul>
       </section>
 

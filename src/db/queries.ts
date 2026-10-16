@@ -138,10 +138,8 @@ export const deleteTodo = (id: string) =>
 /* Settings. Values are JSON, so a setting can be a string, a number, or a
    boolean without a column per key. */
 
-export const getSetting = async (key: string) => {
-  const [row] = await db.select().from(settings).where(eq(settings.key, key));
-  return row?.value;
-};
+/** Every stored setting in one read. Startup and "/todo" both need all of them. */
+export const listSettings = () => db.select().from(settings);
 
 export const setSetting = (key: string, value: string) =>
   db

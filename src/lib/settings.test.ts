@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getSetting: vi.fn<(key: string) => Promise<string | undefined>>(),
+  listSettings: vi.fn<() => Promise<{ key: string; value: string }[]>>(),
   setSetting: vi.fn<(key: string, value: string) => Promise<void>>(),
 }));
 
@@ -13,12 +13,14 @@ import { DEFAULT_SETTINGS, getSettings, saveSetting } from "./settings";
 
 /** Every key reads from the mock, so tests only have to say what changes. */
 const stored = (values: Record<string, string>) => {
-  mocks.getSetting.mockImplementation(async (key) => values[key]);
+  mocks.listSettings.mockImplementation(async () =>
+    Object.entries(values).map(([key, value]) => ({ key, value })),
+  );
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.getSetting.mockResolvedValue(undefined);
+  mocks.listSettings.mockResolvedValue([]);
 });
 
 describe("getSettings", () => {
@@ -65,9 +67,22 @@ describe("getSettings", () => {
   });
 
   it("falls back when the stored value is not JSON", async () => {
-    mocks.getSetting.mockResolvedValue("not json at all");
+    mocks.listSettings.mockImplementation(async () =>
+      Object.keys(DEFAULT_SETTINGS).map((key) => ({
+        key,
+        value: "not json at all",
+      })),
+    );
 
     expect(await getSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("reads every setting in a single query", async () => {
+    await getSettings();
+
+    // One round trip through the plugin, not one per key: this runs at
+    // startup and on every /todo.
+    expect(mocks.listSettings).toHaveBeenCalledTimes(1);
   });
 });
 

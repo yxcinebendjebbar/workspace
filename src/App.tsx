@@ -1,13 +1,21 @@
 import { listen } from "@tauri-apps/api/event";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { TitleBar } from "./components/TitleBar";
 import { applyAppearance, watchSystemTheme } from "./lib/appearance";
 import { useStore } from "./store";
 import { DailyView } from "./views/DailyView";
 import { IssuesView } from "./views/IssuesView";
-import { SettingsView } from "./views/SettingsView";
 import { TodosView } from "./views/TodosView";
+
+/**
+ * Settings is the one view that pulls in the backup parser and the dialog,
+ * filesystem and autostart plugins. Nothing else needs them, so it loads on
+ * open instead of at startup.
+ */
+const SettingsView = lazy(() =>
+  import("./views/SettingsView").then((m) => ({ default: m.SettingsView })),
+);
 
 export default function App() {
   const ready = useStore((s) => s.ready);
@@ -53,7 +61,11 @@ export default function App() {
           {ready && view?.type === "daily" && <DailyView />}
           {ready && view?.type === "issues" && <IssuesView />}
           {ready && view?.type === "todos" && <TodosView />}
-          {ready && view?.type === "settings" && <SettingsView />}
+          {ready && view?.type === "settings" && (
+            <Suspense fallback={null}>
+              <SettingsView />
+            </Suspense>
+          )}
         </main>
       </div>
     </div>

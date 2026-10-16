@@ -1,4 +1,4 @@
-import { getSetting, setSetting } from "../db/queries";
+import { listSettings, setSetting } from "../db/queries";
 
 export type Theme = "system" | "light" | "dark";
 export type Accent = "indigo" | "teal" | "orange";
@@ -71,11 +71,16 @@ const read = <K extends keyof Settings>(
 };
 
 export const getSettings = async (): Promise<Settings> => {
+  // One read for all of them. This runs on the startup path and on every
+  // /todo, so a query per key would be eight round trips through the plugin.
+  const stored = new Map(
+    (await listSettings()).map((row) => [row.key, row.value]),
+  );
   const result: Settings = { ...DEFAULT_SETTINGS };
   for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]) {
     // A computed assignment across a union of keys types as `never`, so the
     // value goes through Object.assign, which accepts any shape.
-    Object.assign(result, { [key]: read(await getSetting(key), key) });
+    Object.assign(result, { [key]: read(stored.get(key), key) });
   }
   return result;
 };

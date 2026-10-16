@@ -5,7 +5,7 @@
  * module reduces all of it to two answers: a session finished, or the list of
  * sessions may have moved on.
  */
-import type { OpenCodeClient } from "@opencode/client";
+
 import type { OpenCodeSession } from "./sessions";
 
 /** How long to wait before listening again after the stream drops. */
@@ -20,6 +20,13 @@ export type SessionSignal =
 export interface EventLike {
   type: string;
   data?: unknown;
+}
+
+/** The one thing watching a server needs from a client. */
+export interface EventSource {
+  event: {
+    subscribe: (options: { signal: AbortSignal }) => AsyncIterable<EventLike>;
+  };
 }
 
 /**
@@ -107,7 +114,7 @@ export function reportFinished(session: OpenCodeSession): void {
  * when the service restarts, so this reconnects on its own.
  */
 export function watch(
-  client: OpenCodeClient,
+  client: EventSource,
   onSignal: (signal: SessionSignal) => void,
 ): () => void {
   const controller = new AbortController();
@@ -119,6 +126,9 @@ export function watch(
         for await (const event of client.event.subscribe({
           signal: controller.signal,
         })) {
+          // The stream may outlive the abort, and a stopped listener must not
+          // reach the store.
+          if (stopped) return;
           const signal = signalOf(event);
           if (signal) onSignal(signal);
         }

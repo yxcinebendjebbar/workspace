@@ -504,6 +504,40 @@ describe("patchIssue", () => {
   });
 });
 
+describe("a failure", () => {
+  it("says so and leaves the optimistic change on screen", async () => {
+    useStore.setState({ issues: [issue("i1", "p1", "Old")] });
+    mocks.updateIssue.mockRejectedValue(new Error("disk is full"));
+
+    await useStore.getState().patchIssue("i1", { title: "New" });
+
+    expect(useStore.getState().actionError).toBe(
+      "Keel could not save that issue (disk is full).",
+    );
+    // The row still shows the change, so the message is the only warning.
+    expect(useStore.getState().issues[0].title).toBe("New");
+  });
+
+  it("is forgotten once a write lands", async () => {
+    useStore.setState({ actionError: "Keel could not save that issue (x)." });
+
+    await useStore.getState().removeTodo("t1");
+
+    expect(mocks.deleteTodo).toHaveBeenCalledWith("t1");
+    expect(useStore.getState().actionError).toBeNull();
+  });
+
+  it("is reported for a read too", async () => {
+    mocks.listTodos.mockRejectedValue(new Error("database is locked"));
+
+    await useStore.getState().open({ type: "todos", listId: "inbox" });
+
+    expect(useStore.getState().actionError).toBe(
+      "Keel could not read that view (database is locked).",
+    );
+  });
+});
+
 describe("removeIssue", () => {
   it("drops the row and writes the deletion", async () => {
     useStore.setState({

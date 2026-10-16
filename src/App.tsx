@@ -20,11 +20,16 @@ const SessionsView = lazy(() =>
   import("./views/SessionsView").then((m) => ({ default: m.SessionsView })),
 );
 
+/** One line at the top of the content area: something did not work. */
+const alertClass =
+  "mx-auto max-w-3xl border-b border-hairline px-8 py-4 text-sm text-danger";
+
 export default function App() {
   const ready = useStore((s) => s.ready);
   const view = useStore((s) => s.view);
   const init = useStore((s) => s.init);
   const initError = useStore((s) => s.initError);
+  const actionError = useStore((s) => s.actionError);
   const refresh = useStore((s) => s.refresh);
   const theme = useStore((s) => s.settings.theme);
   const accent = useStore((s) => s.settings.accent);
@@ -54,11 +59,13 @@ export default function App() {
         <Sidebar />
         <main className="min-w-0 flex-1 overflow-y-auto bg-surface">
           {initError && (
-            <p
-              role="alert"
-              className="mx-auto max-w-3xl border-b border-hairline px-8 py-4 text-sm text-danger"
-            >
+            <p role="alert" className={alertClass}>
               {initError}
+            </p>
+          )}
+          {actionError && (
+            <p role="alert" className={alertClass}>
+              {actionError}
             </p>
           )}
           {ready && view?.type === "daily" && <DailyView />}

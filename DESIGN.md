@@ -141,6 +141,8 @@ Landing page:
 
 **Settings.** A page of groups. Each group is a 14px-radius hairline card on `surface`, divided by hairlines, with a 16px/600 title and one muted line saying what the group does. A row is a label with an optional muted description on the left and its control on the right. Groups for a phase that is not built yet are shown, with their controls disabled and one line saying which phase they arrive in.
 
+**Failure line.** One line at the top of the content area when something did not work: `danger` text, hairline under it, plain words with the cause in brackets. Startup failures and a failed read or write all use the same line, and the newest one replaces the last.
+
 **Daily view.** The home screen and the first screen a new user sees. Quick add at the top, then "Inbox" and "In progress" groups with counts, then one muted line about the launcher shortcut. With no project yet it becomes "Start with a project": one input plus three plain tips (the shortcut, `/todo`, click an issue's status icon).
 
 **Launcher.**

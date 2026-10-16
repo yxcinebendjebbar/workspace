@@ -46,6 +46,8 @@ interface Store {
   opencodeError: string | null;
   /** Set when startup could not finish. The shell still renders so it is readable. */
   initError: string | null;
+  /** The last read or write that failed, in one plain line. */
+  actionError: string | null;
 
   init: () => Promise<void>;
   open: (view: View) => Promise<void>;
@@ -145,6 +147,32 @@ export const useStore = create<Store>((set, get) => {
     if (key === "closeToTray") await setCloseToTray(Boolean(value));
   };
 
+  /** Shows a failure in the shell. The newest message replaces the old one. */
+  const fail = (what: string, error: unknown) =>
+    set({ actionError: `Keel could not ${what} (${errorMessage(error)}).` });
+
+  /**
+   * Runs a write. A failure stays on screen: the view has already changed, so
+   * the message is the only thing telling the user the change did not stick.
+   */
+  const write = async (what: string, work: () => Promise<void>) => {
+    try {
+      await work();
+      if (get().actionError) set({ actionError: null });
+    } catch (error) {
+      fail(what, error);
+    }
+  };
+
+  /** Runs a read, which can fail without anything needing to be undone. */
+  const read = async (what: string, work: () => Promise<void>) => {
+    try {
+      await work();
+    } catch (error) {
+      fail(what, error);
+    }
+  };
+
   return {
     ready: false,
     view: null,
@@ -160,6 +188,7 @@ export const useStore = create<Store>((set, get) => {
     opencodeVersion: "",
     opencodeError: null,
     initError: null,
+    actionError: null,
 
     init: async () => {
       // Everything below can fail. Show the window first, because a hidden
@@ -202,30 +231,33 @@ export const useStore = create<Store>((set, get) => {
 
     open: async (view) => {
       set({ view });
-      await reloadCurrent();
+      await read("read that view", reloadCurrent);
     },
 
     // The launcher writes through its own connection, so the main window
     // reloads when it hears data-changed.
     refresh: async () => {
-      const [lists, projects] = await Promise.all([
-        q.listTodoLists(),
-        q.listProjects(),
-      ]);
-      set({ lists, projects });
-      const v = get().view;
-      // A list or project deleted elsewhere must not leave a dead view.
-      const gone =
-        (v?.type === "issues" && !projects.some((p) => p.id === v.projectId)) ||
-        (v?.type === "todos" && !lists.some((l) => l.id === v.listId));
-      if (gone) {
-        await get().open({ type: "daily" });
-        return;
-      }
-      await reloadCurrent();
-      // Only a window already talking to opencode rereads its sessions, so
-      // this never starts the service by itself.
-      if (get().opencodeConnected) await get().reloadSessions();
+      await read("load your workspace", async () => {
+        const [lists, projects] = await Promise.all([
+          q.listTodoLists(),
+          q.listProjects(),
+        ]);
+        set({ lists, projects });
+        const v = get().view;
+        // A list or project deleted elsewhere must not leave a dead view.
+        const gone =
+          (v?.type === "issues" &&
+            !projects.some((p) => p.id === v.projectId)) ||
+          (v?.type === "todos" && !lists.some((l) => l.id === v.listId));
+        if (gone) {
+          await get().open({ type: "daily" });
+          return;
+        }
+        await reloadCurrent();
+        // Only a window already talking to opencode rereads its sessions, so
+        // this never starts the service by itself.
+        if (get().opencodeConnected) await get().reloadSessions();
+      });
     },
 
     watchOpenCode: async () => {
@@ -304,114 +336,144 @@ export const useStore = create<Store>((set, get) => {
       const settings = { ...get().settings };
       settings[key] = value;
       set({ settings });
-      await saveSetting(key, value);
-      await applySetting(key, value);
+      await write("save that setting", async () => {
+        await saveSetting(key, value);
+        await applySetting(key, value);
+      });
     },
 
     addProject: async (name) => {
-      const taken = new Set(get().projects.map((p) => p.key));
-      const base =
-        name
-          .replace(/[^a-z]/gi, "")
-          .slice(0, 3)
-          .toUpperCase() || "PRJ";
-      let key = base;
-      for (let n = 2; taken.has(key); n++) key = `${base}${n}`;
-      const project = await q.createProject(name, key);
-      set({ projects: await q.listProjects() });
-      await get().open({ type: "issues", projectId: project.id });
+      await write("add that project", async () => {
+        const taken = new Set(get().projects.map((p) => p.key));
+        const base =
+          name
+            .replace(/[^a-z]/gi, "")
+            .slice(0, 3)
+            .toUpperCase() || "PRJ";
+        let key = base;
+        for (let n = 2; taken.has(key); n++) key = `${base}${n}`;
+        const project = await q.createProject(name, key);
+        set({ projects: await q.listProjects() });
+        await get().open({ type: "issues", projectId: project.id });
+      });
     },
 
     renameProject: async (id, name) => {
-      await q.renameProject(id, name);
-      set({
-        projects: get().projects.map((p) => (p.id === id ? { ...p, name } : p)),
+      await write("rename that project", async () => {
+        await q.renameProject(id, name);
+        set({
+          projects: get().projects.map((p) =>
+            p.id === id ? { ...p, name } : p,
+          ),
+        });
       });
     },
 
     removeProject: async (id) => {
-      await q.deleteProject(id);
-      const projects = await q.listProjects();
-      set({ projects });
-      const v = get().view;
-      if (v?.type === "issues" && v.projectId === id) {
-        const next = projects[0];
-        if (next) await get().open({ type: "issues", projectId: next.id });
-        else await get().open({ type: "daily" });
-      }
+      await write("delete that project", async () => {
+        await q.deleteProject(id);
+        const projects = await q.listProjects();
+        set({ projects });
+        const v = get().view;
+        if (v?.type === "issues" && v.projectId === id) {
+          const next = projects[0];
+          if (next) await get().open({ type: "issues", projectId: next.id });
+          else await get().open({ type: "daily" });
+        }
+      });
     },
 
     addIssue: async (title) => {
-      const v = get().view;
-      if (v?.type !== "issues") return;
-      await q.createIssue(v.projectId, title);
-      await reloadIssues();
+      await write("add that issue", async () => {
+        const v = get().view;
+        if (v?.type !== "issues") return;
+        await q.createIssue(v.projectId, title);
+        await reloadIssues();
+      });
     },
 
     patchIssue: async (id, patch) => {
-      set({
-        issues: get().issues.map((i) => (i.id === id ? { ...i, ...patch } : i)),
-        dailyIssues: get().dailyIssues.map((i) =>
-          i.id === id ? { ...i, ...patch } : i,
-        ),
+      await write("save that issue", async () => {
+        set({
+          issues: get().issues.map((i) =>
+            i.id === id ? { ...i, ...patch } : i,
+          ),
+          dailyIssues: get().dailyIssues.map((i) =>
+            i.id === id ? { ...i, ...patch } : i,
+          ),
+        });
+        await q.updateIssue(id, patch);
+        await reloadDaily();
       });
-      await q.updateIssue(id, patch);
-      await reloadDaily();
     },
 
     removeIssue: async (id) => {
-      set({
-        issues: get().issues.filter((i) => i.id !== id),
-        dailyIssues: get().dailyIssues.filter((i) => i.id !== id),
+      await write("delete that issue", async () => {
+        set({
+          issues: get().issues.filter((i) => i.id !== id),
+          dailyIssues: get().dailyIssues.filter((i) => i.id !== id),
+        });
+        await q.deleteIssue(id);
+        await reloadCurrent();
       });
-      await q.deleteIssue(id);
-      await reloadCurrent();
     },
 
     addList: async (name) => {
-      const list = await q.createTodoList(name);
-      set({ lists: await q.listTodoLists() });
-      await get().open({ type: "todos", listId: list.id });
+      await write("add that list", async () => {
+        const list = await q.createTodoList(name);
+        set({ lists: await q.listTodoLists() });
+        await get().open({ type: "todos", listId: list.id });
+      });
     },
 
     renameList: async (id, name) => {
       if (id === q.INBOX_ID) return;
-      await q.renameTodoList(id, name);
-      set({ lists: await q.listTodoLists() });
+      await write("rename that list", async () => {
+        await q.renameTodoList(id, name);
+        set({ lists: await q.listTodoLists() });
+      });
     },
 
     removeList: async (id) => {
       if (id === q.INBOX_ID) return;
-      await q.deleteTodoList(id);
-      set({ lists: await q.listTodoLists() });
-      const v = get().view;
-      if (v?.type === "todos" && v.listId === id)
-        await get().open({ type: "daily" });
+      await write("delete that list", async () => {
+        await q.deleteTodoList(id);
+        set({ lists: await q.listTodoLists() });
+        const v = get().view;
+        if (v?.type === "todos" && v.listId === id)
+          await get().open({ type: "daily" });
+      });
     },
 
     addTodo: async (listId, title) => {
-      await q.addTodo(listId, title);
-      await reloadCurrent();
+      await write("add that todo", async () => {
+        await q.addTodo(listId, title);
+        await reloadCurrent();
+      });
     },
 
     setTodoDone: async (id, done) => {
-      set({
-        todos: get().todos.map((t) => (t.id === id ? { ...t, done } : t)),
-        // On the Daily view a finished todo leaves the list at once.
-        dailyTodos: done
-          ? get().dailyTodos.filter((t) => t.id !== id)
-          : get().dailyTodos.map((t) => (t.id === id ? { ...t, done } : t)),
+      await write("save that todo", async () => {
+        set({
+          todos: get().todos.map((t) => (t.id === id ? { ...t, done } : t)),
+          // On the Daily view a finished todo leaves the list at once.
+          dailyTodos: done
+            ? get().dailyTodos.filter((t) => t.id !== id)
+            : get().dailyTodos.map((t) => (t.id === id ? { ...t, done } : t)),
+        });
+        await q.setTodoDone(id, done);
+        await reloadCurrent();
       });
-      await q.setTodoDone(id, done);
-      await reloadCurrent();
     },
 
     removeTodo: async (id) => {
-      set({
-        todos: get().todos.filter((t) => t.id !== id),
-        dailyTodos: get().dailyTodos.filter((t) => t.id !== id),
+      await write("delete that todo", async () => {
+        set({
+          todos: get().todos.filter((t) => t.id !== id),
+          dailyTodos: get().dailyTodos.filter((t) => t.id !== id),
+        });
+        await q.deleteTodo(id);
       });
-      await q.deleteTodo(id);
     },
   };
 });

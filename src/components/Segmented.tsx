@@ -16,7 +16,9 @@ export function Segmented<T extends string>({
   onChange: (next: T) => void;
 }) {
   return (
-    <fieldset className="flex rounded-lg border border-hairline p-0.5">
+    // `relative` holds the sr-only legend and inputs: with no positioned
+    // ancestor they are placed against the document and stretch the page.
+    <fieldset className="relative flex rounded-lg border border-hairline p-0.5">
       <legend className="sr-only">{label}</legend>
       {options.map((o) => (
         <label

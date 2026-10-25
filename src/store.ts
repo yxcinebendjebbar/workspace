@@ -4,6 +4,7 @@ import { create } from "zustand";
 import * as q from "./db/queries";
 import type { Issue, Project, Todo, TodoList } from "./db/schema";
 import { applyAppearance } from "./lib/appearance";
+import { parseBackup } from "./lib/backup";
 import { errorMessage } from "./lib/errors";
 import {
   DEFAULT_SETTINGS,
@@ -25,6 +26,14 @@ export type View =
 export type IssuePatch = Partial<
   Pick<Issue, "title" | "description" | "status" | "priority">
 >;
+
+/** What a Data row reports, so its message can sit beside the button. */
+export type DataResult = { ok: true } | { ok: false; message: string };
+
+/** An export holds the text to write; a failure holds the reason instead. */
+export type ExportResult =
+  | { ok: true; text: string }
+  | { ok: false; message: string };
 
 interface Store {
   ready: boolean;
@@ -61,6 +70,13 @@ interface Store {
     key: K,
     value: Settings[K],
   ) => Promise<void>;
+
+  /** The text an export file should hold, or why the data could not be read. */
+  exportBackup: () => Promise<ExportResult>;
+  /** Adds what a backup file holds; a bad file comes back as a message. */
+  importBackup: (text: string) => Promise<DataResult>;
+  /** Empties the workspace and returns to the Daily view. */
+  resetWorkspace: () => Promise<DataResult>;
 
   addProject: (name: string) => Promise<void>;
   renameProject: (id: string, name: string) => Promise<void>;
@@ -340,6 +356,51 @@ export const useStore = create<Store>((set, get) => {
         await saveSetting(key, value);
         await applySetting(key, value);
       });
+    },
+
+    // Buttons in Settings run these, so each answers the row that ran it
+    // instead of using the one failure line: the message belongs next to the
+    // button, and a file that is not a backup is an expected answer, not a
+    // fault. The data work itself stays here, not in the view.
+    exportBackup: async () => {
+      try {
+        const data = await q.exportData();
+        return { ok: true, text: JSON.stringify(data, null, 2) };
+      } catch (error) {
+        return {
+          ok: false,
+          message: `Could not read your data (${errorMessage(error)}).`,
+        };
+      }
+    },
+
+    importBackup: async (text) => {
+      const parsed = parseBackup(text);
+      if (!parsed.ok) return parsed;
+      try {
+        await q.importData(parsed.data);
+        await get().refresh();
+        return { ok: true };
+      } catch (error) {
+        return {
+          ok: false,
+          message: `Could not import that file (${errorMessage(error)}).`,
+        };
+      }
+    },
+
+    resetWorkspace: async () => {
+      try {
+        await q.resetAllData();
+        await get().refresh();
+        await get().open({ type: "daily" });
+        return { ok: true };
+      } catch (error) {
+        return {
+          ok: false,
+          message: `Could not reset your data (${errorMessage(error)}).`,
+        };
+      }
     },
 
     addProject: async (name) => {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProjectIssue } from "./db/queries";
 import type { Issue, Project, Todo, TodoList } from "./db/schema";
+import type { Backup } from "./lib/backup";
 import type { IssuePatch } from "./store";
 
 // The store talks to the database only through this module, so mocking it
@@ -28,6 +29,10 @@ const mocks = vi.hoisted(() => ({
   deleteTodo: vi.fn<(id: string) => Promise<void>>(),
 
   listInProgressIssues: vi.fn<() => Promise<ProjectIssue[]>>(),
+
+  exportData: vi.fn<() => Promise<Backup>>(),
+  importData: vi.fn<(data: Backup) => Promise<void>>(),
+  resetAllData: vi.fn<() => Promise<void>>(),
 }));
 
 // The opencode bridge, reduced to a fake server the store can read from.
@@ -130,6 +135,14 @@ const projectIssue = (
   projectName: "Keel",
 });
 
+const backup = (): Backup => ({
+  version: 1,
+  projects: [{ id: "p1", name: "Keel", key: "KEE", createdAt: 0 }],
+  issues: [],
+  todoLists: [],
+  todos: [],
+});
+
 beforeEach(() => {
   // reset, not just clear: a test that replaces an implementation would
   // otherwise leave it hanging for the tests after it.
@@ -165,6 +178,7 @@ beforeEach(() => {
     opencodeVersion: "",
     opencodeError: null,
     initError: null,
+    actionError: null,
     settings: { ...tauri.settings },
   });
   mocks.listProjects.mockResolvedValue([]);
@@ -690,5 +704,80 @@ describe("refresh", () => {
     await useStore.getState().refresh();
 
     expect(useStore.getState().view).toEqual({ type: "daily" });
+  });
+});
+
+describe("backup and reset", () => {
+  it("hands back the workspace as JSON text", async () => {
+    mocks.exportData.mockResolvedValue(backup());
+
+    const result = await useStore.getState().exportBackup();
+
+    if (!result.ok) throw new Error(result.message);
+    expect(JSON.parse(result.text).projects[0].name).toBe("Keel");
+  });
+
+  it("says why the data could not be read", async () => {
+    mocks.exportData.mockRejectedValue(new Error("no such table"));
+
+    const result = await useStore.getState().exportBackup();
+
+    expect(result).toEqual({
+      ok: false,
+      message: expect.stringContaining("no such table"),
+    });
+  });
+
+  it("refuses a file that is not a Keel backup", async () => {
+    const result = await useStore.getState().importBackup('{"version":2}');
+
+    expect(result.ok).toBe(false);
+    expect(mocks.importData).not.toHaveBeenCalled();
+  });
+
+  it("imports a backup and reloads the workspace", async () => {
+    mocks.listProjects.mockResolvedValue([project("p1", "Keel", "KEE")]);
+
+    const result = await useStore
+      .getState()
+      .importBackup(JSON.stringify(backup()));
+
+    expect(result.ok).toBe(true);
+    expect(mocks.importData).toHaveBeenCalledOnce();
+    expect(useStore.getState().projects).toHaveLength(1);
+  });
+
+  it("says why an import failed", async () => {
+    mocks.importData.mockRejectedValue(new Error("locked"));
+
+    const result = await useStore
+      .getState()
+      .importBackup(JSON.stringify(backup()));
+
+    expect(result).toEqual({
+      ok: false,
+      message: expect.stringContaining("locked"),
+    });
+  });
+
+  it("empties the workspace and goes back to Daily", async () => {
+    useStore.setState({ view: { type: "settings" } });
+
+    const result = await useStore.getState().resetWorkspace();
+
+    expect(result.ok).toBe(true);
+    expect(mocks.resetAllData).toHaveBeenCalledOnce();
+    expect(useStore.getState().view).toEqual({ type: "daily" });
+  });
+
+  it("says why a reset failed", async () => {
+    mocks.resetAllData.mockRejectedValue(new Error("disk full"));
+
+    const result = await useStore.getState().resetWorkspace();
+
+    expect(result).toEqual({
+      ok: false,
+      message: expect.stringContaining("disk full"),
+    });
   });
 });

@@ -10,9 +10,8 @@ import { type FormEvent, useEffect, useState } from "react";
 import { version } from "../../package.json";
 import { Segmented } from "../components/Segmented";
 import { Toggle } from "../components/Toggle";
-import { exportData, INBOX_ID, importData, resetAllData } from "../db/queries";
+import { INBOX_ID } from "../db/queries";
 import { commands } from "../launcher/commands";
-import { parseBackup } from "../lib/backup";
 import { errorMessage } from "../lib/errors";
 import type { Theme } from "../lib/settings";
 import {
@@ -402,8 +401,9 @@ function TweaksGroup() {
 }
 
 function DataGroup() {
-  const refresh = useStore((s) => s.refresh);
-  const open = useStore((s) => s.open);
+  const exportBackup = useStore((s) => s.exportBackup);
+  const importBackup = useStore((s) => s.importBackup);
+  const resetWorkspace = useStore((s) => s.resetWorkspace);
   const [dbPath, setDbPath] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -433,7 +433,12 @@ function DataGroup() {
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
       if (!path) return;
-      await writeTextFile(path, JSON.stringify(await exportData(), null, 2));
+      const result = await exportBackup();
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      await writeTextFile(path, result.text);
       setNotice(`Exported to ${path}`);
     } catch (e) {
       setError(`Could not export: ${errorMessage(e)}`);
@@ -449,13 +454,11 @@ function DataGroup() {
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
       if (!picked || Array.isArray(picked)) return;
-      const result = parseBackup(await readTextFile(picked));
+      const result = await importBackup(await readTextFile(picked));
       if (!result.ok) {
         setError(result.message);
         return;
       }
-      await importData(result.data);
-      await refresh();
       setNotice("Imported. Items already here were skipped.");
     } catch (e) {
       setError(`Could not import: ${errorMessage(e)}`);
@@ -465,14 +468,12 @@ function DataGroup() {
   const reset = async () => {
     setArmed(false);
     clearStatus();
-    try {
-      await resetAllData();
-      await refresh();
-      await open({ type: "daily" });
-      setNotice("All projects, issues and todos are gone.");
-    } catch (e) {
-      setError(`Could not reset: ${errorMessage(e)}`);
+    const result = await resetWorkspace();
+    if (!result.ok) {
+      setError(result.message);
+      return;
     }
+    setNotice("All projects, issues and todos are gone.");
   };
 
   const openLogs = async () => {

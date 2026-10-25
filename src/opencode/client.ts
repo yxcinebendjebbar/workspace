@@ -71,10 +71,3 @@ export async function opencode(serverUrl = ""): Promise<Connected> {
   }
   return result;
 }
-
-/** Drops the cached client, so the next call connects from scratch. */
-export function forgetOpenCode(): void {
-  client = null;
-  version = "";
-  connectedTo = null;
-}

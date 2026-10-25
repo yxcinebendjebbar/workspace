@@ -187,9 +187,9 @@ Before writing any code, read the current opencode documentation (server mode an
 - For phase 4: only a window that is watching a server hears `opencode:finished`, and today the Sessions view is what starts the watch. Phase 4 must watch from the main window as soon as it connects, so a notification does not depend on the Sessions view being open.
 
 ### Phase 4: phone link
-- [ ] Create `shared/protocol.ts` with Zod schemas for all relay messages (pairing, notify, file offer, file received, ack). Version the protocol.
+- [x] Create `shared/protocol.ts` with Zod schemas for all relay messages (pairing, notify, file offer, file received, ack). Version the protocol.
 - [ ] `relay/`: Hono Worker with routes for pairing and file upload and download; a Durable Object per paired workspace that holds the WebSocket from the PC and fans messages to the phone; R2 for files with automatic expiry; per-device tokens.
-- [ ] Notifications: implement Web Push for the PWA using a Workers-compatible Web Push implementation (verify it runs on the Workers runtime). If that proves impractical, stop and ask the human before substituting a different push service.
+- [ ] Notifications: implement Web Push for the PWA using a Workers-compatible Web Push implementation (verify it runs on the Workers runtime). If that proves impractical, stop and ask the human before substituting a different push service. Web Push is viable on Workers: plan on `@block65/webcrypto-web-push` v2 (Web Crypto only, one pure dependency, `aes128gcm` and VAPID). Confirm it with a real push once the Worker is deployed.
 - [ ] `phone/`: PWA with a manifest, service worker, pairing screen (opens from the QR code), notification permission flow, a file send screen, a received-files list, and a Web Share Target so files can be shared to it from other phone apps. Styling follows `DESIGN.md`.
 - [ ] App side (`src/relay/`): Pairing screen showing a QR code (lazy-loaded), connection status, an outbound WebSocket with reconnect and backoff, and a send-file action. Forward `opencode:finished` as a notification.
 - [ ] Receive files from the phone into a configurable folder (default: Downloads), then show a notice in the app.
